@@ -5,18 +5,18 @@ import { RouterModule, Routes } from '@angular/router';
 const routes: Routes = [
   {
     path: '',
-    redirectTo: 'register',
+    redirectTo: 'signin',
     pathMatch: 'full'
   },
   {
-    path: 'register',
+    path: 'signin',
     loadComponent: () =>
       import('./sign-in/sign-in.component').then(
         (c) => c.SignInComponent
       )
   },
   {
-    path: 'login',
+    path: 'signup',
     loadComponent: () =>
       import('./sign-up/sign-up.component').then(
         (c) => c.SignUpComponent
