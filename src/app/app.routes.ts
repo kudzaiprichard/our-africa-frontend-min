@@ -15,6 +15,13 @@ export const routes: Routes = [
       )
   },
   {
+    path: 'dashboard',
+    loadChildren: () =>
+      import('./pages/dasboard/routes').then(
+        (m) => m.DashboardRoutingModule
+      )
+  },
+  {
     path: '**',
     redirectTo: 'signin'
   }

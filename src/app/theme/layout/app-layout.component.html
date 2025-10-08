@@ -1,0 +1,50 @@
+<!-- src/app/theme/layout/app-layout.component.html -->
+
+<!-- Active Nav Glow -->
+<div class="nav-glow" [class.hidden]="isFocusMode"></div>
+
+<!-- Navigation History (Top-Left) -->
+<app-nav-history
+  *ngIf="!isFocusMode"
+  [canGoBack]="canGoBack"
+  [canGoForward]="canGoForward"
+  [currentPage]="currentPageInfo"
+  (back)="onBack()"
+  (forward)="onForward()">
+</app-nav-history>
+
+<!-- User Profile (Top-Center) -->
+<app-user-profile
+  *ngIf="!isFocusMode"
+  [userEmail]="userEmail"
+  [userRole]="userRole"
+  [userInitials]="userInitials"
+  (profile)="onProfile()"
+  (settings)="onSettings()"
+  (logout)="onLogout()">
+</app-user-profile>
+
+<!-- Scrollable Content Container -->
+<div class="content-container" #contentContainer>
+  <div class="main-content" [class.focus-mode]="isFocusMode">
+    <div class="content-wrapper">
+      <!-- DYNAMIC CONTENT GOES HERE -->
+      <router-outlet></router-outlet>
+    </div>
+  </div>
+</div>
+
+<!-- Scroll Indicator -->
+<app-scroll-indicator
+  *ngIf="!isFocusMode"
+  [scrollContainer]="contentContainer"
+  [hideThreshold]="100">
+</app-scroll-indicator>
+
+<!-- Floating Navigation (Bottom-Left) -->
+<app-floating-nav
+  [isFocusMode]="isFocusMode"
+  [activePage]="currentPage"
+  (navigate)="onNavigate($event)"
+  (focusModeChange)="toggleFocusMode($event)">
+</app-floating-nav>

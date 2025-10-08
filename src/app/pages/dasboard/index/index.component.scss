@@ -1,0 +1,94 @@
+/* src/app/pages/dashboard/dashboard.component.scss */
+
+/* Demo Content Sections */
+.demo-section {
+  margin-bottom: 40px;
+  padding: 30px;
+  background: rgba(30, 41, 59, 0.4);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 16px;
+  color: var(--dark-text);
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.demo-section h2 {
+  font-size: 24px;
+  margin-bottom: 16px;
+  color: var(--dark-text);
+  font-weight: 600;
+}
+
+.demo-section p {
+  color: var(--dark-text-muted);
+  line-height: 1.6;
+  margin-bottom: 12px;
+  font-size: 15px;
+}
+
+.demo-section p:last-child {
+  margin-bottom: 0;
+}
+
+/* Animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Staggered animation for sections */
+.demo-section:nth-child(1) { animation-delay: 0.1s; }
+.demo-section:nth-child(2) { animation-delay: 0.15s; }
+.demo-section:nth-child(3) { animation-delay: 0.2s; }
+.demo-section:nth-child(4) { animation-delay: 0.25s; }
+.demo-section:nth-child(5) { animation-delay: 0.3s; }
+.demo-section:nth-child(6) { animation-delay: 0.35s; }
+.demo-section:nth-child(7) { animation-delay: 0.4s; }
+.demo-section:nth-child(8) { animation-delay: 0.45s; }
+.demo-section:nth-child(9) { animation-delay: 0.5s; }
+.demo-section:nth-child(10) { animation-delay: 0.55s; }
+
+/* Hover Effect */
+.demo-section:hover {
+  border-color: rgba(99, 102, 241, 0.2);
+  transform: translateY(-2px);
+  transition: all 0.3s ease;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .demo-section {
+    padding: 24px;
+    margin-bottom: 32px;
+  }
+
+  .demo-section h2 {
+    font-size: 20px;
+    margin-bottom: 12px;
+  }
+
+  .demo-section p {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .demo-section {
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+
+  .demo-section h2 {
+    font-size: 18px;
+  }
+
+  .demo-section p {
+    font-size: 13px;
+  }
+}

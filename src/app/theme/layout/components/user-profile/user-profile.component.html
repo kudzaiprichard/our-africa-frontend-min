@@ -1,0 +1,35 @@
+<!-- src/app/theme/layout/components/user-profile/user-profile.component.html -->
+
+<div class="user-profile-container">
+  <div class="user-avatar" (click)="toggleDropdown($event)">
+    {{ userInitials }}
+  </div>
+
+  <div class="user-dropdown" [class.show]="isDropdownOpen">
+    <div class="dropdown-header">
+      <div class="dropdown-email">{{ userEmail }}</div>
+      <div class="dropdown-role">{{ userRole }}</div>
+    </div>
+
+    <div class="dropdown-divider"></div>
+
+    <div class="dropdown-item" (click)="onProfile()">
+      <i class="fas fa-user"></i>
+      <span>Profile</span>
+    </div>
+
+    <div class="dropdown-divider"></div>
+
+    <div class="dropdown-item" (click)="onSettings()">
+      <i class="fas fa-cog"></i>
+      <span>Settings</span>
+    </div>
+
+    <div class="dropdown-divider"></div>
+
+    <div class="dropdown-item logout" (click)="onLogout()">
+      <i class="fas fa-sign-out-alt"></i>
+      <span>Logout</span>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,34 @@
+<!-- src/app/theme/layout/components/floating-nav/floating-nav.component.html -->
+
+<div class="nav-container" [class.focus-mode]="isFocusMode">
+  <div class="nav-items" [class.collapsed]="isNavCollapsed">
+    <div
+      *ngFor="let item of navItems; let i = index"
+      class="nav-item-row"
+      [class.active]="item.page === activePage"
+      [attr.data-page]="item.page"
+      [attr.data-icon]="item.icon"
+      (click)="onNavigate(item)"
+    >
+      <div class="nav-item">
+        <i class="fas {{ item.icon }}"></i>
+      </div>
+      <span class="nav-label">{{ item.label }}</span>
+    </div>
+  </div>
+
+  <!-- Bottom Row: Nav Toggle + Focus Mode Toggle -->
+  <div class="nav-bottom-row">
+    <div class="nav-toggle" [class.rotated]="isNavCollapsed" (click)="toggleNav()">
+      <i class="fas fa-bars"></i>
+    </div>
+    <div
+      class="focus-mode-toggle"
+      [class.active]="isFocusMode"
+      [title]="isFocusMode ? 'Exit Focus Mode' : 'Focus Mode'"
+      (click)="toggleFocusMode()"
+    >
+      <i class="fas" [class.fa-eye]="!isFocusMode" [class.fa-eye-slash]="isFocusMode"></i>
+    </div>
+  </div>
+</div>

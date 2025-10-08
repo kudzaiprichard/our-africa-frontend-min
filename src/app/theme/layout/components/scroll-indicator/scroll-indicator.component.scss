@@ -1,0 +1,63 @@
+/* src/app/theme/layout/components/scroll-indicator/scroll-indicator.component.scss */
+
+.scroll-indicator {
+  position: fixed;
+  bottom: clamp(16px, 3vh, 24px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  opacity: 1;
+  transition: opacity 0.4s ease;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.scroll-indicator.hidden {
+  opacity: 0;
+}
+
+.scroll-icon {
+  width: 16px;
+  height: 24px;
+  border: 2px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  position: relative;
+}
+
+.scroll-icon::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 3px;
+  height: 6px;
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 2px;
+  animation: scrollDown 2s ease-in-out infinite;
+}
+
+@keyframes scrollDown {
+  0% {
+    top: 4px;
+    opacity: 1;
+  }
+  50% {
+    top: 10px;
+    opacity: 0.5;
+  }
+  100% {
+    top: 4px;
+    opacity: 1;
+  }
+}
+
+.scroll-text {
+  font-size: 9px;
+  color: rgba(148, 163, 184, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}

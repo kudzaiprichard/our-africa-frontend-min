@@ -1,0 +1,120 @@
+/* src/app/theme/layout/components/user-profile/user-profile.component.scss */
+
+.user-profile-container {
+  position: fixed;
+  top: clamp(20px, 4vh, 32px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  transition: all 0.3s ease;
+}
+
+.user-avatar {
+  width: clamp(60px, 9vw, 72px);
+  height: clamp(60px, 9vw, 72px);
+  background: linear-gradient(135deg, var(--innovation-purple), var(--primary-color));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: clamp(20px, 3.5vw, 24px);
+  font-weight: 600;
+  color: white;
+  border: clamp(3px, 0.5vw, 4px) solid var(--primary-color);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.user-avatar:hover {
+  transform: scale(1.05);
+}
+
+.user-dropdown {
+  position: absolute;
+  top: calc(clamp(60px, 9vw, 72px) + clamp(12px, 2vh, 16px));
+  left: 50%;
+  transform: translateX(-50%) translateY(-10px);
+  background: rgba(30, 41, 59, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: clamp(12px, 2vw, 16px);
+  padding: clamp(6px, 1vh, 8px);
+  min-width: clamp(200px, 30vw, 240px);
+  max-width: 90vw;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+.user-dropdown.show {
+  opacity: 1;
+  pointer-events: all;
+  transform: translateX(-50%) translateY(0);
+}
+
+.dropdown-header {
+  padding: clamp(10px, 1.5vh, 12px) clamp(12px, 2vw, 16px);
+}
+
+.dropdown-email {
+  font-size: clamp(11px, 1.6vw, 13px);
+  color: var(--dark-text);
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.dropdown-role {
+  font-size: clamp(10px, 1.4vw, 11px);
+  color: var(--dark-text-muted);
+  margin-top: 2px;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: rgba(148, 163, 184, 0.2);
+  margin: clamp(6px, 1vh, 8px) 0;
+}
+
+.dropdown-item {
+  padding: clamp(8px, 1.2vh, 10px) clamp(12px, 2vw, 16px);
+  border-radius: clamp(8px, 1.2vw, 10px);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--dark-text-muted);
+  font-size: clamp(12px, 1.8vw, 14px);
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1.5vw, 12px);
+}
+
+.dropdown-item:hover {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--dark-text);
+}
+
+.dropdown-item i {
+  width: clamp(16px, 2.5vw, 18px);
+  font-size: clamp(14px, 2vw, 16px);
+}
+
+.dropdown-item.logout {
+  color: #ef4444;
+}
+
+.dropdown-item.logout:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .user-profile-container {
+    top: 16px;
+  }
+}
+
+@media (max-height: 600px) {
+  .user-profile-container {
+    top: 12px;
+  }
+}
