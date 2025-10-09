@@ -1,5 +1,6 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
+import {AuthGuard} from './libs/identity_access/guards/auth.guard';
 
 export const routes: Routes = [
   {
@@ -16,6 +17,8 @@ export const routes: Routes = [
   },
   {
     path: 'dashboard',
+    canActivate: [AuthGuard],
+    canActivateChild: [AuthGuard],
     loadChildren: () =>
       import('./pages/dasboard/routes').then(
         (m) => m.DashboardRoutingModule
@@ -23,7 +26,7 @@ export const routes: Routes = [
   },
   {
     path: '**',
-    redirectTo: 'signin'
+    redirectTo: 'authentication'
   }
 ];
 
