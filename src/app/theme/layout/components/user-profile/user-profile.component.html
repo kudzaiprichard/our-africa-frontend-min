@@ -27,9 +27,9 @@
 
     <div class="dropdown-divider"></div>
 
-    <div class="dropdown-item logout" (click)="onLogout()">
+    <div class="dropdown-item logout" (click)="onLogout()" [class.disabled]="isLoggingOut">
       <i class="fas fa-sign-out-alt"></i>
-      <span>Logout</span>
+      <span>{{ isLoggingOut ? 'Logging out...' : 'Logout' }}</span>
     </div>
   </div>
 </div>

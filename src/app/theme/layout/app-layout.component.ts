@@ -37,10 +37,6 @@ export class AppLayoutComponent implements OnInit {
   canGoForward: boolean = false;
   currentPageInfo: PageInfo | null = null;
 
-  // User Info
-  userEmail: string = 'alex.smith@email.com';
-  userRole: string = 'Premium Member';
-  userInitials: string = 'AS';
 
   // Navigation Service
   private navigationService = new NavigationService();
@@ -114,24 +110,6 @@ export class AppLayoutComponent implements OnInit {
       this.router.navigate([`/${this.currentPage}`]);
       console.log('Going forward to:', this.currentPage);
     }
-  }
-
-  // User Profile Actions
-  onProfile(): void {
-    console.log('Navigate to profile');
-    this.router.navigate(['/profile']);
-  }
-
-  onSettings(): void {
-    console.log('Navigate to settings');
-    this.router.navigate(['/settings']);
-  }
-
-  onLogout(): void {
-    console.log('Logging out...');
-    // Add your logout logic here
-    // this.authService.logout();
-    this.router.navigate(['/authentication/signin']);
   }
 
   // Helper Methods

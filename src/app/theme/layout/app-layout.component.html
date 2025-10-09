@@ -14,15 +14,7 @@
 </app-nav-history>
 
 <!-- User Profile (Top-Center) -->
-<app-user-profile
-  *ngIf="!isFocusMode"
-  [userEmail]="userEmail"
-  [userRole]="userRole"
-  [userInitials]="userInitials"
-  (profile)="onProfile()"
-  (settings)="onSettings()"
-  (logout)="onLogout()">
-</app-user-profile>
+<app-user-profile *ngIf="!isFocusMode"></app-user-profile>
 
 <!-- Scrollable Content Container -->
 <div class="content-container" #contentContainer>
