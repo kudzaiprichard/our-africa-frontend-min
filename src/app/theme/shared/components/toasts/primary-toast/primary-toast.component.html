@@ -1,0 +1,73 @@
+<div
+  class="toast-wrapper"
+  [class]="containerClasses"
+  *ngIf="toasts.length > 0">
+
+  <div class="toast-list">
+    <div
+      *ngFor="let toast of displayedToasts; trackBy: trackToast"
+      class="toast-item"
+      [class]="getToastClasses(toast)"
+      [attr.data-toast-id]="toast.id"
+      [attr.role]="getAriaRole(toast)"
+      [attr.aria-live]="getAriaLive(toast)"
+      [attr.aria-atomic]="true"
+      (mouseenter)="onToastHover(toast, true)"
+      (mouseleave)="onToastHover(toast, false)">
+
+      <!-- Toast Content -->
+      <div class="toast-content">
+        <!-- Icon -->
+        <div class="toast-icon" *ngIf="toast.icon">
+          <i [class]="toast.icon"></i>
+        </div>
+
+        <!-- Text Content -->
+        <div class="toast-text-content">
+          <div class="toast-title" *ngIf="toast.title">
+            {{ toast.title }}
+          </div>
+          <div class="toast-message">
+            {{ toast.message }}
+          </div>
+        </div>
+
+        <!-- Action Button -->
+        <button
+          *ngIf="toast.actionButton"
+          class="toast-action-btn"
+          [class]="'btn-' + (toast.actionButton.variant || 'ghost')"
+          [disabled]="toast.actionButton.loading"
+          (click)="onActionClick(toast)"
+          type="button">
+          <i
+            *ngIf="toast.actionButton.icon && !toast.actionButton.loading"
+            [class]="toast.actionButton.icon">
+          </i>
+          <i
+            *ngIf="toast.actionButton.loading"
+            class="fas fa-spinner fa-spin">
+          </i>
+          <span *ngIf="toast.actionButton.text">{{ toast.actionButton.text }}</span>
+        </button>
+
+        <!-- Close Button -->
+        <button
+          *ngIf="toast.closable"
+          class="toast-close-btn"
+          (click)="removeToast(toast.id)"
+          [attr.aria-label]="'Close ' + toast.type + ' notification'"
+          type="button">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <!-- Progress Bar -->
+      <div
+        *ngIf="shouldShowProgress(toast)"
+        class="toast-progress-bar"
+        [style.animation-duration]="toast.duration + 'ms'">
+      </div>
+    </div>
+  </div>
+</div>

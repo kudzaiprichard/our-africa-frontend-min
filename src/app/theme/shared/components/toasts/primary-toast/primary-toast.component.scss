@@ -1,0 +1,406 @@
+// ================================================
+// Toast Component Styles - Using Global CSS Variables
+// ================================================
+
+// ==================== TOAST STYLES ====================
+
+// Toast wrapper positioning
+.toast-wrapper {
+  position: fixed;
+  z-index: 999999;
+  pointer-events: none;
+  min-width: 300px;
+  max-width: 400px;
+
+  // Position variants
+  &.toast-position-top-left {
+    top: 20px;
+    left: 20px;
+  }
+
+  &.toast-position-top-right {
+    top: 20px;
+    right: 20px;
+  }
+
+  &.toast-position-top-center {
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  &.toast-position-bottom-left {
+    bottom: 20px;
+    left: 20px;
+  }
+
+  &.toast-position-bottom-right {
+    bottom: 20px;
+    right: 20px;
+  }
+
+  &.toast-position-bottom-center {
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+.toast-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+// Toast item base styles
+.toast-item {
+  // Base card styles - using dark theme colors
+  background: var(--dark-card);
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3),
+  0 8px 32px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--dark-border);
+  color: var(--dark-text);
+
+  pointer-events: auto;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+
+  // Base animation
+  &.toast-animation-slide-in {
+    animation: slideIn 0.3s ease-out;
+  }
+
+  &.toast-animation-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  &.toast-animation-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  &.toast-animation-slide-down {
+    animation: slideDown 0.3s ease-out;
+  }
+
+  &.toast-animation-bounce {
+    animation: bounceIn 0.5s ease-out;
+  }
+
+  &.toast-animation-scale {
+    animation: scaleIn 0.3s ease-out;
+  }
+
+  // Pause animation on hover
+  &.toast-paused {
+    .toast-progress-bar {
+      animation-play-state: paused;
+    }
+  }
+}
+
+// Toast content layout
+.toast-content {
+  display: flex;
+  align-items: flex-start;
+  padding: 12px;
+  gap: 12px;
+
+  &.toast-has-title {
+    align-items: flex-start;
+  }
+}
+
+.toast-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.toast-text-content {
+  flex-grow: 1;
+  min-width: 0; // Allow text to wrap
+}
+
+.toast-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  font-size: 14px;
+  color: var(--dark-text);
+}
+
+.toast-message {
+  font-size: 14px;
+  line-height: 1.4;
+  word-wrap: break-word;
+  color: var(--dark-text-muted);
+}
+
+// Action and close buttons
+.toast-action-btn {
+  // Button reset styles
+  border: none;
+  background: none;
+  cursor: pointer;
+  outline: none;
+
+  // Button base styles
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  margin-left: 8px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+
+  &.btn-primary {
+    background: var(--primary-color);
+    color: white;
+
+    &:hover {
+      background: var(--innovation-purple);
+    }
+  }
+
+  &.btn-secondary {
+    background: var(--secondary-color);
+    color: white;
+
+    &:hover {
+      opacity: 0.9;
+    }
+  }
+
+  &.btn-ghost {
+    background: transparent;
+    color: var(--dark-text);
+    border: 1px solid var(--dark-border);
+
+    &:hover {
+      background: rgba(148, 163, 184, 0.1);
+      border-color: var(--dark-text-muted);
+    }
+  }
+}
+
+.toast-close-btn {
+  // Button reset styles
+  border: none;
+  background: none;
+  cursor: pointer;
+  outline: none;
+
+  padding: 4px;
+  margin-left: 8px;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+  flex-shrink: 0;
+  border-radius: 4px;
+  color: var(--dark-text-muted);
+
+  &:hover {
+    opacity: 1;
+    color: var(--dark-text);
+  }
+
+  &:focus {
+    opacity: 1;
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+}
+
+// Progress bar
+.toast-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  width: 100%;
+  background: rgba(148, 163, 184, 0.3);
+  animation: progress linear forwards;
+  transform-origin: left;
+}
+
+// Type-specific styles
+.toast-success {
+  background: var(--secondary-color);
+  color: white;
+  border-color: var(--secondary-color);
+
+  .toast-progress-bar {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .toast-title,
+  .toast-message {
+    color: white;
+  }
+}
+
+.toast-error {
+  background: #ef4444;
+  color: white;
+  border-color: #ef4444;
+
+  .toast-progress-bar {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .toast-title,
+  .toast-message {
+    color: white;
+  }
+}
+
+.toast-warning {
+  background: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+
+  .toast-progress-bar {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .toast-title,
+  .toast-message {
+    color: white;
+  }
+}
+
+.toast-info {
+  background: var(--innovation-blue);
+  color: white;
+  border-color: var(--innovation-blue);
+
+  .toast-progress-bar {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .toast-title,
+  .toast-message {
+    color: white;
+  }
+}
+
+// ==================== ANIMATIONS ====================
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+// ==================== RESPONSIVE DESIGN ====================
+
+@media (max-width: 768px) {
+  .toast-wrapper {
+    &.toast-position-top-left,
+    &.toast-position-top-right,
+    &.toast-position-top-center {
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      transform: none;
+    }
+
+    &.toast-position-bottom-left,
+    &.toast-position-bottom-right,
+    &.toast-position-bottom-center {
+      bottom: 10px;
+      left: 10px;
+      right: 10px;
+      transform: none;
+    }
+  }
+
+  .toast-list {
+    width: 100%;
+  }
+
+  .toast-item {
+    .toast-content {
+      padding: 12px;
+    }
+  }
+}
