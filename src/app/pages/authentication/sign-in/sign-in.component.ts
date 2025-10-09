@@ -3,10 +3,10 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
-import {AuthService} from '../../../libs/identity_access/services/auth.service';
-import {AuthStateService} from '../../../libs/identity_access/services/auth-state.service';
-import {LoginRequest} from '../../../libs/identity_access/models/authentication.dtos.interface';
-
+import { AuthService } from '../../../libs/identity_access/services/auth.service';
+import { AuthStateService } from '../../../libs/identity_access/services/auth-state.service';
+import { LoginRequest } from '../../../libs/identity_access/models/authentication.dtos.interface';
+import { ToastsService, ToastType } from '../../../theme/shared';
 
 @Component({
   selector: 'app-sign-in',
@@ -18,18 +18,21 @@ import {LoginRequest} from '../../../libs/identity_access/models/authentication.
 export class SignInComponent implements OnDestroy {
   private destroy$ = new Subject<void>();
 
-  // Form fields
   email: string = '';
   password: string = '';
   rememberMe: boolean = false;
   showPassword: boolean = false;
   isLoading: boolean = false;
-  errorMessage: string = '';
+
+  // Validation error states
+  emailError: boolean = false;
+  passwordError: boolean = false;
 
   constructor(
     private authService: AuthService,
     private authStateService: AuthStateService,
-    private router: Router
+    private router: Router,
+    private toastsService: ToastsService
   ) {}
 
   ngOnDestroy(): void {
@@ -37,17 +40,50 @@ export class SignInComponent implements OnDestroy {
     this.destroy$.complete();
   }
 
-  // Toggle password visibility
   togglePasswordVisibility(): void {
     this.showPassword = !this.showPassword;
   }
 
-  // Handle form submission
   onSubmit(): void {
-    this.errorMessage = '';
+    // Reset errors
+    this.emailError = false;
+    this.passwordError = false;
 
-    if (!this.email || !this.password) {
-      this.errorMessage = 'Please enter your email and password';
+    // Field-specific validation
+    if (!this.email && !this.password) {
+      this.emailError = true;
+      this.passwordError = true;
+      this.toastsService.showToastAdvanced({
+        title: 'Validation Error',
+        message: 'Please enter your email and password',
+        type: ToastType.Error,
+        icon: 'fas fa-exclamation-circle',
+        duration: 5000
+      });
+      return;
+    }
+
+    if (!this.email) {
+      this.emailError = true;
+      this.toastsService.showToastAdvanced({
+        title: 'Email Required',
+        message: 'Please enter your email address',
+        type: ToastType.Error,
+        icon: 'fas fa-exclamation-circle',
+        duration: 5000
+      });
+      return;
+    }
+
+    if (!this.password) {
+      this.passwordError = true;
+      this.toastsService.showToastAdvanced({
+        title: 'Password Required',
+        message: 'Please enter your password',
+        type: ToastType.Error,
+        icon: 'fas fa-exclamation-circle',
+        duration: 5000
+      });
       return;
     }
 
@@ -69,16 +105,45 @@ export class SignInComponent implements OnDestroy {
           this.authStateService.setLoggingIn(false);
           this.authStateService.handleAuthSuccess();
 
-          // Navigate to dashboard
+          this.toastsService.showToastAdvanced({
+            title: 'Welcome Back!',
+            message: 'You have been successfully logged in.',
+            type: ToastType.Success,
+            icon: 'fas fa-check-circle',
+            duration: 5000
+          });
+
           this.router.navigate(['/dashboard']);
         },
         error: (error) => {
           console.error('Login failed:', error);
-          this.errorMessage = error.error?.error?.title || 'Invalid email or password';
+          const errorMessage = error.error?.error?.title || 'Invalid email or password';
+
+          this.toastsService.showToastAdvanced({
+            title: 'Login Failed',
+            message: errorMessage,
+            type: ToastType.Error,
+            icon: 'fas fa-exclamation-triangle',
+            duration: 8000
+          });
+
           this.isLoading = false;
           this.authStateService.setLoggingIn(false);
-          this.authStateService.setLoginError(this.errorMessage);
+          this.authStateService.setLoginError(errorMessage);
         }
       });
+  }
+
+  // Clear error on input change
+  onEmailChange(): void {
+    if (this.emailError) {
+      this.emailError = false;
+    }
+  }
+
+  onPasswordChange(): void {
+    if (this.passwordError) {
+      this.passwordError = false;
+    }
   }
 }

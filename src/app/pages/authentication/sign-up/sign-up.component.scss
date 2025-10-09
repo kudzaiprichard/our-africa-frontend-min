@@ -225,22 +225,37 @@
   transition: all 0.3s ease;
   outline: none;
   font-family: inherit;
+
+  &::placeholder {
+    color: var(--dark-text-muted);
+    opacity: 0.6;
+  }
+
+  &:focus {
+    border-color: var(--primary-color);
+    background: rgba(15, 23, 42, 0.6);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &.error {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.05);
+
+    &:focus {
+      border-color: #ef4444;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+    }
+  }
 }
 
 .form-textarea {
   resize: vertical;
   min-height: 80px;
-}
-
-.form-input::placeholder, .form-textarea::placeholder {
-  color: var(--dark-text-muted);
-  opacity: 0.6;
-}
-
-.form-input:focus, .form-textarea:focus {
-  border-color: var(--primary-color);
-  background: rgba(15, 23, 42, 0.6);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .form-row {
@@ -265,10 +280,15 @@
   font-size: 18px;
   padding: 4px;
   transition: color 0.2s ease;
-}
 
-.password-toggle:hover {
-  color: var(--primary-color);
+  &:hover:not(:disabled) {
+    color: var(--primary-color);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 }
 
 /* Verification Code Input */
@@ -291,12 +311,27 @@
   color: var(--dark-text);
   transition: all 0.3s ease;
   outline: none;
-}
 
-.code-input:focus {
-  border-color: var(--primary-color);
-  background: rgba(15, 23, 42, 0.6);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  &:focus {
+    border-color: var(--primary-color);
+    background: rgba(15, 23, 42, 0.6);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &.error {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.05);
+
+    &:focus {
+      border-color: #ef4444;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+    }
+  }
 }
 
 .resend-code {
@@ -312,10 +347,16 @@
   font-weight: 500;
   cursor: pointer;
   transition: color 0.2s ease;
-}
 
-.resend-link:hover {
-  color: var(--innovation-purple);
+  &:hover:not(.disabled) {
+    color: var(--innovation-purple);
+  }
+
+  &.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
 }
 
 /* Buttons */
@@ -334,32 +375,60 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &.loading {
+    pointer-events: none;
+  }
 }
 
 .btn-primary {
   background: linear-gradient(135deg, var(--primary-color), var(--innovation-purple));
   color: white;
   box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
-}
 
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
 }
 
 .btn-secondary {
   background: rgba(148, 163, 184, 0.1);
   color: var(--dark-text);
   border: 1px solid rgba(148, 163, 184, 0.2);
+
+  &:hover:not(:disabled) {
+    background: rgba(148, 163, 184, 0.2);
+  }
 }
 
-.btn-secondary:hover {
-  background: rgba(148, 163, 184, 0.2);
+.loading-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.loading-icon {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Login Link */
@@ -375,35 +444,39 @@
   text-decoration: none;
   font-weight: 600;
   transition: color 0.2s ease;
-}
 
-.login-link:hover {
-  color: var(--innovation-purple);
+  &:hover {
+    color: var(--innovation-purple);
+  }
 }
 
 /* Success Message */
 .success-message {
   text-align: center;
-  padding: 40px 20px;
-}
-
-.success-icon {
-  font-size: 64px;
-  color: var(--secondary-color);
-  margin-bottom: 24px;
+  padding: 60px 20px;
 }
 
 .success-title {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
   color: var(--dark-text);
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
 }
 
 .success-text {
   font-size: 14px;
   color: var(--dark-text-muted);
-  margin-bottom: 32px;
+  line-height: 1.6;
+}
+
+.spinner-icon {
+  font-size: 20px;
+  color: var(--primary-color);
+  animation: spin 2s linear infinite;
 }
 
 /* Responsive */

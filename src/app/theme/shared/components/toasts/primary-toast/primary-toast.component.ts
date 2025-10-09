@@ -6,7 +6,7 @@ import { ToastAnimation, ToastPosition, ToastType } from '../toasts.enums';
 import { ToastsService } from '../toasts.service';
 
 @Component({
-  selector: 'student-primary-toast',
+  selector: 'app-primary-toast',
   standalone: true,
   imports: [CommonModule],
   templateUrl: './primary-toast.component.html',

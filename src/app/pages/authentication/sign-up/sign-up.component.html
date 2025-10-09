@@ -48,14 +48,39 @@
           type="email"
           id="email"
           class="form-input"
+          [class.error]="emailError"
           placeholder="Enter your email"
           [(ngModel)]="formData.email"
+          (ngModelChange)="onEmailChange()"
           required
+          [disabled]="isLoading"
         >
       </div>
       <div class="form-actions">
-        <button type="button" class="btn btn-primary" (click)="nextStep(2)">
-          Send Verification Code
+        <button
+          type="button"
+          class="btn btn-primary"
+          (click)="nextStep(2)"
+          [disabled]="isLoading"
+          [class.loading]="isLoading"
+        >
+          <span *ngIf="!isLoading">Send Verification Code</span>
+          <span *ngIf="isLoading" class="loading-content">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              class="loading-icon"
+            >
+              <path
+                d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+              />
+            </svg>
+            Sending...
+          </span>
         </button>
       </div>
     </div>
@@ -72,67 +97,113 @@
         <input
           type="text"
           class="code-input"
+          [class.error]="codeError"
           maxlength="1"
           [(ngModel)]="verificationCode[0]"
           (input)="onCodeInput($event, 0)"
           (keydown)="onCodeKeydown($event, 0)"
+          [disabled]="isLoading"
           #code1
         >
         <input
           type="text"
           class="code-input"
+          [class.error]="codeError"
           maxlength="1"
           [(ngModel)]="verificationCode[1]"
           (input)="onCodeInput($event, 1)"
           (keydown)="onCodeKeydown($event, 1)"
+          [disabled]="isLoading"
           #code2
         >
         <input
           type="text"
           class="code-input"
+          [class.error]="codeError"
           maxlength="1"
           [(ngModel)]="verificationCode[2]"
           (input)="onCodeInput($event, 2)"
           (keydown)="onCodeKeydown($event, 2)"
+          [disabled]="isLoading"
           #code3
         >
         <input
           type="text"
           class="code-input"
+          [class.error]="codeError"
           maxlength="1"
           [(ngModel)]="verificationCode[3]"
           (input)="onCodeInput($event, 3)"
           (keydown)="onCodeKeydown($event, 3)"
+          [disabled]="isLoading"
           #code4
         >
         <input
           type="text"
           class="code-input"
+          [class.error]="codeError"
           maxlength="1"
           [(ngModel)]="verificationCode[4]"
           (input)="onCodeInput($event, 4)"
           (keydown)="onCodeKeydown($event, 4)"
+          [disabled]="isLoading"
           #code5
         >
         <input
           type="text"
           class="code-input"
+          [class.error]="codeError"
           maxlength="1"
           [(ngModel)]="verificationCode[5]"
           (input)="onCodeInput($event, 5)"
           (keydown)="onCodeKeydown($event, 5)"
+          [disabled]="isLoading"
           #code6
         >
       </div>
       <div class="resend-code">
-        Didn't receive code? <a class="resend-link" (click)="resendCode()">Resend</a>
+        Didn't receive code?
+        <a
+          class="resend-link"
+          (click)="resendCode()"
+          [class.disabled]="isLoading"
+        >
+          Resend
+        </a>
       </div>
       <div class="form-actions">
-        <button type="button" class="btn btn-secondary" (click)="prevStep(1)">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          (click)="prevStep(1)"
+          [disabled]="isLoading"
+        >
           Back
         </button>
-        <button type="button" class="btn btn-primary" (click)="nextStep(3)">
-          Verify Code
+        <button
+          type="button"
+          class="btn btn-primary"
+          (click)="nextStep(3)"
+          [disabled]="isLoading"
+          [class.loading]="isLoading"
+        >
+          <span *ngIf="!isLoading">Verify Code</span>
+          <span *ngIf="isLoading" class="loading-content">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              class="loading-icon"
+            >
+              <path
+                d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+              />
+            </svg>
+            Verifying...
+          </span>
         </button>
       </div>
     </div>
@@ -146,9 +217,12 @@
             type="text"
             id="firstName"
             class="form-input"
+            [class.error]="firstNameError"
             placeholder="First name"
             [(ngModel)]="formData.firstName"
+            (ngModelChange)="onFirstNameChange()"
             required
+            [disabled]="isLoading"
           >
         </div>
         <div class="form-group">
@@ -157,9 +231,12 @@
             type="text"
             id="lastName"
             class="form-input"
+            [class.error]="lastNameError"
             placeholder="Last name"
             [(ngModel)]="formData.lastName"
+            (ngModelChange)="onLastNameChange()"
             required
+            [disabled]="isLoading"
           >
         </div>
       </div>
@@ -171,6 +248,7 @@
           class="form-input"
           placeholder="Middle name"
           [(ngModel)]="formData.middleName"
+          [disabled]="isLoading"
         >
       </div>
       <div class="form-group">
@@ -180,13 +258,24 @@
           class="form-textarea"
           placeholder="Tell us about yourself"
           [(ngModel)]="formData.bio"
+          [disabled]="isLoading"
         ></textarea>
       </div>
       <div class="form-actions">
-        <button type="button" class="btn btn-secondary" (click)="prevStep(2)">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          (click)="prevStep(2)"
+          [disabled]="isLoading"
+        >
           Back
         </button>
-        <button type="button" class="btn btn-primary" (click)="nextStep(4)">
+        <button
+          type="button"
+          class="btn btn-primary"
+          (click)="nextStep(4)"
+          [disabled]="isLoading"
+        >
           Continue
         </button>
       </div>
@@ -200,9 +289,12 @@
           type="tel"
           id="mobile"
           class="form-input"
+          [class.error]="mobileError"
           placeholder="+1 (555) 000-0000"
           [(ngModel)]="formData.mobile"
+          (ngModelChange)="onMobileChange()"
           required
+          [disabled]="isLoading"
         >
       </div>
       <div class="form-group">
@@ -212,21 +304,56 @@
             [type]="showPassword ? 'text' : 'password'"
             id="password"
             class="form-input"
+            [class.error]="passwordError"
             placeholder="Create a password"
             [(ngModel)]="formData.password"
+            (ngModelChange)="onPasswordChange()"
             required
+            [disabled]="isLoading"
           >
-          <button type="button" class="password-toggle" (click)="togglePasswordVisibility()">
+          <button
+            type="button"
+            class="password-toggle"
+            (click)="togglePasswordVisibility()"
+            [disabled]="isLoading"
+          >
             <i [class]="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
           </button>
         </div>
       </div>
       <div class="form-actions">
-        <button type="button" class="btn btn-secondary" (click)="prevStep(3)">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          (click)="prevStep(3)"
+          [disabled]="isLoading"
+        >
           Back
         </button>
-        <button type="button" class="btn btn-primary" (click)="completeSignup()">
-          Complete Registration
+        <button
+          type="button"
+          class="btn btn-primary"
+          (click)="completeSignup()"
+          [disabled]="isLoading"
+          [class.loading]="isLoading"
+        >
+          <span *ngIf="!isLoading">Complete Registration</span>
+          <span *ngIf="isLoading" class="loading-content">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              class="loading-icon"
+            >
+              <path
+                d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+              />
+            </svg>
+            Processing...
+          </span>
         </button>
       </div>
     </div>
@@ -234,17 +361,11 @@
     <!-- Success Step -->
     <div class="form-step" [class.active]="currentStep === 5">
       <div class="success-message">
-        <div class="success-icon">
-          <i class="fas fa-check-circle"></i>
-        </div>
-        <h2 class="success-title">Account Created!</h2>
-        <p class="success-text">
-          Your account has been successfully created.<br>
-          You can now sign in and start learning.
-        </p>
-        <button type="button" class="btn btn-primary" (click)="goToLogin()">
-          Go to Login
-        </button>
+        <h2 class="success-title">
+          {{ registrationTitle }}
+          <i class="fas fa-cog spinner-icon"></i>
+        </h2>
+        <p class="success-text">{{ registrationMessage }}</p>
       </div>
     </div>
 

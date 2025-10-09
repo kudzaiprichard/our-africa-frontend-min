@@ -3,14 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
-import {AuthService} from '../../../libs/identity_access/services/auth.service';
-import {AuthStateService} from '../../../libs/identity_access/services/auth-state.service';
+import { AuthService } from '../../../libs/identity_access/services/auth.service';
+import { AuthStateService } from '../../../libs/identity_access/services/auth-state.service';
 import {
   CompleteRegistrationRequest,
   InitiateEmailVerificationRequest,
   VerifyEmailCodeRequest
 } from '../../../libs/identity_access/models/authentication.dtos.interface';
-
+import { ToastsService, ToastType } from '../../../theme/shared';
 
 @Component({
   selector: 'app-sign-up',
@@ -28,9 +28,18 @@ export class SignUpComponent implements OnDestroy {
   showPassword: boolean = false;
   tempToken: string = '';
   isLoading: boolean = false;
-  errorMessage: string = '';
+  completingRegistration: boolean = false;
+  registrationTitle: string = '';
+  registrationMessage: string = '';
 
-  // Form data
+  // Validation error states
+  emailError: boolean = false;
+  firstNameError: boolean = false;
+  lastNameError: boolean = false;
+  mobileError: boolean = false;
+  passwordError: boolean = false;
+  codeError: boolean = false;
+
   formData = {
     email: '',
     firstName: '',
@@ -41,13 +50,13 @@ export class SignUpComponent implements OnDestroy {
     password: ''
   };
 
-  // Verification code array
   verificationCode: string[] = ['', '', '', '', '', ''];
 
   constructor(
     private authService: AuthService,
     private authStateService: AuthStateService,
-    private router: Router
+    private router: Router,
+    private toastsService: ToastsService
   ) {}
 
   ngOnDestroy(): void {
@@ -55,10 +64,7 @@ export class SignUpComponent implements OnDestroy {
     this.destroy$.complete();
   }
 
-  // Navigate to next step
   nextStep(step: number): void {
-    this.errorMessage = '';
-
     if (step === 2) {
       this.sendVerificationCode();
       return;
@@ -70,19 +76,69 @@ export class SignUpComponent implements OnDestroy {
     }
 
     if (step === 4) {
-      if (!this.formData.firstName || !this.formData.lastName) {
-        this.errorMessage = 'Please fill in your first and last name';
-        return;
-      }
+      this.validateProfileStep();
+      return;
     }
 
     this.currentStep = step;
   }
 
-  // Send verification code
+  private validateProfileStep(): void {
+    this.firstNameError = false;
+    this.lastNameError = false;
+
+    if (!this.formData.firstName && !this.formData.lastName) {
+      this.firstNameError = true;
+      this.lastNameError = true;
+      this.toastsService.showToastAdvanced({
+        title: 'Validation Error',
+        message: 'Please fill in your first and last name',
+        type: ToastType.Error,
+        icon: 'fas fa-exclamation-circle',
+        duration: 5000
+      });
+      return;
+    }
+
+    if (!this.formData.firstName) {
+      this.firstNameError = true;
+      this.toastsService.showToastAdvanced({
+        title: 'First Name Required',
+        message: 'Please enter your first name',
+        type: ToastType.Error,
+        icon: 'fas fa-exclamation-circle',
+        duration: 5000
+      });
+      return;
+    }
+
+    if (!this.formData.lastName) {
+      this.lastNameError = true;
+      this.toastsService.showToastAdvanced({
+        title: 'Last Name Required',
+        message: 'Please enter your last name',
+        type: ToastType.Error,
+        icon: 'fas fa-exclamation-circle',
+        duration: 5000
+      });
+      return;
+    }
+
+    this.currentStep = 4;
+  }
+
   private sendVerificationCode(): void {
+    this.emailError = false;
+
     if (!this.formData.email) {
-      this.errorMessage = 'Please enter your email';
+      this.emailError = true;
+      this.toastsService.showToastAdvanced({
+        title: 'Email Required',
+        message: 'Please enter your email address',
+        type: ToastType.Error,
+        icon: 'fas fa-exclamation-circle',
+        duration: 5000
+      });
       return;
     }
 
@@ -102,22 +158,47 @@ export class SignUpComponent implements OnDestroy {
           this.currentStep = 2;
           this.isLoading = false;
           this.authStateService.setRegistering(false);
+
+          this.toastsService.showToastAdvanced({
+            title: 'Code Sent',
+            message: 'Verification code has been sent to your email',
+            type: ToastType.Success,
+            icon: 'fas fa-check-circle',
+            duration: 5000
+          });
         },
         error: (error) => {
           console.error('Failed to send verification code:', error);
-          this.errorMessage = error.error?.error?.title || 'Failed to send verification code';
+          const errorMessage = error.error?.error?.title || 'Failed to send verification code';
+
+          this.toastsService.showToastAdvanced({
+            title: 'Registration Failed',
+            message: errorMessage,
+            type: ToastType.Error,
+            icon: 'fas fa-exclamation-triangle',
+            duration: 8000
+          });
+
           this.isLoading = false;
           this.authStateService.setRegistering(false);
-          this.authStateService.setRegisterError(this.errorMessage);
+          this.authStateService.setRegisterError(errorMessage);
         }
       });
   }
 
-  // Verify code
   private verifyCode(): void {
+    this.codeError = false;
     const code = this.verificationCode.join('');
+
     if (code.length !== 6) {
-      this.errorMessage = 'Please enter the complete 6-digit code';
+      this.codeError = true;
+      this.toastsService.showToastAdvanced({
+        title: 'Code Required',
+        message: 'Please enter the complete 6-digit verification code',
+        type: ToastType.Error,
+        icon: 'fas fa-exclamation-circle',
+        duration: 5000
+      });
       return;
     }
 
@@ -141,33 +222,49 @@ export class SignUpComponent implements OnDestroy {
           this.currentStep = 3;
           this.isLoading = false;
           this.authStateService.setRegistering(false);
+
+          this.toastsService.showToastAdvanced({
+            title: 'Email Verified',
+            message: 'Your email has been successfully verified',
+            type: ToastType.Success,
+            icon: 'fas fa-check-circle',
+            duration: 5000
+          });
         },
         error: (error) => {
           console.error('Verification failed:', error);
-          this.errorMessage = error.error?.error?.title || 'Invalid verification code';
+          const errorMessage = error.error?.error?.title || 'Invalid verification code';
+
+          this.toastsService.showToastAdvanced({
+            title: 'Verification Failed',
+            message: errorMessage,
+            type: ToastType.Error,
+            icon: 'fas fa-exclamation-triangle',
+            duration: 8000
+          });
+
           this.isLoading = false;
           this.authStateService.setRegistering(false);
-          this.authStateService.setRegisterError(this.errorMessage);
+          this.authStateService.setRegisterError(errorMessage);
         }
       });
   }
 
-  // Navigate to previous step
   prevStep(step: number): void {
-    this.errorMessage = '';
     this.currentStep = step;
   }
 
-  // Handle code input
   onCodeInput(event: any, index: number): void {
     const value = event.target.value;
+    if (this.codeError) {
+      this.codeError = false;
+    }
     if (value.length === 1 && index < 5) {
       const inputs = this.codeInputs.toArray();
       inputs[index + 1].nativeElement.focus();
     }
   }
 
-  // Handle code keydown
   onCodeKeydown(event: any, index: number): void {
     if (event.key === 'Backspace' && event.target.value === '' && index > 0) {
       const inputs = this.codeInputs.toArray();
@@ -175,11 +272,9 @@ export class SignUpComponent implements OnDestroy {
     }
   }
 
-  // Resend verification code
   resendCode(): void {
-    this.errorMessage = '';
     this.verificationCode = ['', '', '', '', '', ''];
-
+    this.codeError = false;
     this.isLoading = true;
 
     const request: InitiateEmailVerificationRequest = {
@@ -193,29 +288,85 @@ export class SignUpComponent implements OnDestroy {
         next: (response) => {
           console.log('Verification code resent:', response.message);
           this.isLoading = false;
+
+          this.toastsService.showToastAdvanced({
+            title: 'Code Resent',
+            message: 'A new verification code has been sent to your email',
+            type: ToastType.Success,
+            icon: 'fas fa-check-circle',
+            duration: 5000
+          });
         },
         error: (error) => {
           console.error('Failed to resend code:', error);
-          this.errorMessage = error.error?.error?.title || 'Failed to resend verification code';
+          const errorMessage = error.error?.error?.title || 'Failed to resend verification code';
+
+          this.toastsService.showToastAdvanced({
+            title: 'Resend Failed',
+            message: errorMessage,
+            type: ToastType.Error,
+            icon: 'fas fa-exclamation-triangle',
+            duration: 8000
+          });
+
           this.isLoading = false;
         }
       });
   }
 
-  // Toggle password visibility
   togglePasswordVisibility(): void {
     this.showPassword = !this.showPassword;
   }
 
-  // Complete signup
   completeSignup(): void {
-    if (!this.formData.mobile || !this.formData.password) {
-      this.errorMessage = 'Please fill in all required fields';
+    this.mobileError = false;
+    this.passwordError = false;
+
+    if (!this.formData.mobile && !this.formData.password) {
+      this.mobileError = true;
+      this.passwordError = true;
+      this.toastsService.showToastAdvanced({
+        title: 'Validation Error',
+        message: 'Please fill in your mobile number and password',
+        type: ToastType.Error,
+        icon: 'fas fa-exclamation-circle',
+        duration: 5000
+      });
+      return;
+    }
+
+    if (!this.formData.mobile) {
+      this.mobileError = true;
+      this.toastsService.showToastAdvanced({
+        title: 'Mobile Number Required',
+        message: 'Please enter your mobile number',
+        type: ToastType.Error,
+        icon: 'fas fa-exclamation-circle',
+        duration: 5000
+      });
+      return;
+    }
+
+    if (!this.formData.password) {
+      this.passwordError = true;
+      this.toastsService.showToastAdvanced({
+        title: 'Password Required',
+        message: 'Please create a password',
+        type: ToastType.Error,
+        icon: 'fas fa-exclamation-circle',
+        duration: 5000
+      });
       return;
     }
 
     if (!this.tempToken) {
-      this.errorMessage = 'Verification token missing. Please restart registration.';
+      this.toastsService.showToastAdvanced({
+        title: 'Token Missing',
+        message: 'Verification token missing. Please restart registration.',
+        type: ToastType.Error,
+        icon: 'fas fa-exclamation-circle',
+        duration: 8000
+      });
       return;
     }
 
@@ -237,23 +388,89 @@ export class SignUpComponent implements OnDestroy {
       .subscribe({
         next: (response) => {
           console.log('Registration complete:', response.message);
+
+          // Move to success step and start creating account phase
           this.currentStep = 5;
           this.isLoading = false;
-          this.authStateService.setRegistering(false);
-          this.authStateService.clearRegisterState();
+          this.registrationTitle = 'Creating Account';
+          this.registrationMessage = 'Setting up your account...';
+
+          // Phase 1: Creating account messages
+          setTimeout(() => {
+            this.registrationMessage = 'Creating basic account settings...';
+
+            setTimeout(() => {
+              this.registrationMessage = 'Initializing user profile...';
+
+              setTimeout(() => {
+                this.registrationMessage = 'Configuring preferences...';
+
+                // Phase 2: Login phase
+                setTimeout(() => {
+                  this.registrationTitle = 'Logging into System';
+                  this.registrationMessage = 'Authenticating credentials...';
+
+                  setTimeout(() => {
+                    this.registrationMessage = 'Performing security checks...';
+
+                    setTimeout(() => {
+                      this.registrationMessage = 'Loading dashboard...';
+
+                      // Redirect after final message
+                      setTimeout(() => {
+                        this.authStateService.setRegistering(false);
+                        this.authStateService.clearRegisterState();
+                        this.router.navigate(['/dashboard']);
+                      }, 1500);
+                    }, 1100);
+                  }, 1100);
+                }, 800);
+              }, 1200);
+            }, 1500);
+          }, 100);
         },
         error: (error) => {
           console.error('Registration failed:', error);
-          this.errorMessage = error.error?.error?.title || 'Registration failed';
+          const errorMessage = error.error?.error?.title || 'Registration failed';
+
+          this.toastsService.showToastAdvanced({
+            title: 'Registration Failed',
+            message: errorMessage,
+            type: ToastType.Error,
+            icon: 'fas fa-exclamation-triangle',
+            duration: 8000
+          });
+
           this.isLoading = false;
+          this.completingRegistration = false;
           this.authStateService.setRegistering(false);
-          this.authStateService.setRegisterError(this.errorMessage);
+          this.authStateService.setRegisterError(errorMessage);
         }
       });
   }
 
-  // Go to login
   goToLogin(): void {
     this.router.navigate(['/authentication/signin']);
+  }
+
+  // Clear error handlers
+  onEmailChange(): void {
+    if (this.emailError) this.emailError = false;
+  }
+
+  onFirstNameChange(): void {
+    if (this.firstNameError) this.firstNameError = false;
+  }
+
+  onLastNameChange(): void {
+    if (this.lastNameError) this.lastNameError = false;
+  }
+
+  onMobileChange(): void {
+    if (this.mobileError) this.mobileError = false;
+  }
+
+  onPasswordChange(): void {
+    if (this.passwordError) this.passwordError = false;
   }
 }

@@ -15,10 +15,13 @@
           type="email"
           id="email"
           class="form-input"
+          [class.error]="emailError"
           placeholder="Enter your email"
           [(ngModel)]="email"
+          (ngModelChange)="onEmailChange()"
           name="email"
           required
+          [disabled]="isLoading"
         >
       </div>
 
@@ -29,15 +32,19 @@
             [type]="showPassword ? 'text' : 'password'"
             id="password"
             class="form-input"
+            [class.error]="passwordError"
             placeholder="Enter your password"
             [(ngModel)]="password"
+            (ngModelChange)="onPasswordChange()"
             name="password"
             required
+            [disabled]="isLoading"
           >
           <button
             type="button"
             class="password-toggle"
             (click)="togglePasswordVisibility()"
+            [disabled]="isLoading"
           >
             <i [class]="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
           </button>
@@ -51,13 +58,37 @@
             id="remember"
             name="remember"
             [(ngModel)]="rememberMe"
+            [disabled]="isLoading"
           >
           <label for="remember">Remember me</label>
         </div>
         <a href="#" class="forgot-link">Forgot password?</a>
       </div>
 
-      <button type="submit" class="submit-btn">Sign In</button>
+      <button
+        type="submit"
+        class="submit-btn"
+        [disabled]="isLoading"
+        [class.loading]="isLoading"
+      >
+        <span *ngIf="!isLoading">Sign In</span>
+        <span *ngIf="isLoading" class="loading-content">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            class="loading-icon"
+          >
+            <path
+              d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+            />
+          </svg>
+          Signing in...
+        </span>
+      </button>
     </form>
 
     <div class="signup-text">
