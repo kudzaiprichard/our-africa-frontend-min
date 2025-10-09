@@ -1,7 +1,16 @@
-import { Component, ViewChildren, QueryList, ElementRef } from '@angular/core';
+import { Component, ViewChildren, QueryList, ElementRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import {RouterLink} from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { Subject, takeUntil } from 'rxjs';
+import {AuthService} from '../../../libs/identity_access/services/auth.service';
+import {AuthStateService} from '../../../libs/identity_access/services/auth-state.service';
+import {
+  CompleteRegistrationRequest,
+  InitiateEmailVerificationRequest,
+  VerifyEmailCodeRequest
+} from '../../../libs/identity_access/models/authentication.dtos.interface';
+
 
 @Component({
   selector: 'app-sign-up',
@@ -10,11 +19,16 @@ import {RouterLink} from '@angular/router';
   templateUrl: './sign-up.component.html',
   styleUrls: ['./sign-up.component.scss']
 })
-export class SignUpComponent {
+export class SignUpComponent implements OnDestroy {
   @ViewChildren('code1, code2, code3, code4, code5, code6') codeInputs!: QueryList<ElementRef>;
+
+  private destroy$ = new Subject<void>();
 
   currentStep: number = 1;
   showPassword: boolean = false;
+  tempToken: string = '';
+  isLoading: boolean = false;
+  errorMessage: string = '';
 
   // Form data
   formData = {
@@ -30,28 +44,34 @@ export class SignUpComponent {
   // Verification code array
   verificationCode: string[] = ['', '', '', '', '', ''];
 
+  constructor(
+    private authService: AuthService,
+    private authStateService: AuthStateService,
+    private router: Router
+  ) {}
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   // Navigate to next step
   nextStep(step: number): void {
+    this.errorMessage = '';
+
     if (step === 2) {
-      if (!this.formData.email) {
-        alert('Please enter your email');
-        return;
-      }
-      console.log('Sending verification code to:', this.formData.email);
+      this.sendVerificationCode();
+      return;
     }
 
     if (step === 3) {
-      const code = this.verificationCode.join('');
-      if (code.length !== 6) {
-        alert('Please enter the complete 6-digit code');
-        return;
-      }
-      console.log('Verifying code:', code);
+      this.verifyCode();
+      return;
     }
 
     if (step === 4) {
       if (!this.formData.firstName || !this.formData.lastName) {
-        alert('Please fill in your first and last name');
+        this.errorMessage = 'Please fill in your first and last name';
         return;
       }
     }
@@ -59,8 +79,82 @@ export class SignUpComponent {
     this.currentStep = step;
   }
 
+  // Send verification code
+  private sendVerificationCode(): void {
+    if (!this.formData.email) {
+      this.errorMessage = 'Please enter your email';
+      return;
+    }
+
+    this.isLoading = true;
+    this.authStateService.setRegistering(true);
+
+    const request: InitiateEmailVerificationRequest = {
+      email: this.formData.email,
+      purpose: 'registration'
+    };
+
+    this.authService.initiateEmailVerification(request)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          console.log('Verification code sent:', response.message);
+          this.currentStep = 2;
+          this.isLoading = false;
+          this.authStateService.setRegistering(false);
+        },
+        error: (error) => {
+          console.error('Failed to send verification code:', error);
+          this.errorMessage = error.error?.error?.title || 'Failed to send verification code';
+          this.isLoading = false;
+          this.authStateService.setRegistering(false);
+          this.authStateService.setRegisterError(this.errorMessage);
+        }
+      });
+  }
+
+  // Verify code
+  private verifyCode(): void {
+    const code = this.verificationCode.join('');
+    if (code.length !== 6) {
+      this.errorMessage = 'Please enter the complete 6-digit code';
+      return;
+    }
+
+    this.isLoading = true;
+    this.authStateService.setRegistering(true);
+
+    const request: VerifyEmailCodeRequest = {
+      email: this.formData.email,
+      code: code,
+      purpose: 'registration'
+    };
+
+    this.authService.verifyEmailCode(request)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          console.log('Email verified:', response.message);
+          this.tempToken = response.temp_token || '';
+          this.authStateService.setTempToken(this.tempToken);
+          this.authStateService.setVerifiedEmail(this.formData.email);
+          this.currentStep = 3;
+          this.isLoading = false;
+          this.authStateService.setRegistering(false);
+        },
+        error: (error) => {
+          console.error('Verification failed:', error);
+          this.errorMessage = error.error?.error?.title || 'Invalid verification code';
+          this.isLoading = false;
+          this.authStateService.setRegistering(false);
+          this.authStateService.setRegisterError(this.errorMessage);
+        }
+      });
+  }
+
   // Navigate to previous step
   prevStep(step: number): void {
+    this.errorMessage = '';
     this.currentStep = step;
   }
 
@@ -83,8 +177,29 @@ export class SignUpComponent {
 
   // Resend verification code
   resendCode(): void {
-    console.log('Resending verification code');
-    alert('Verification code resent!');
+    this.errorMessage = '';
+    this.verificationCode = ['', '', '', '', '', ''];
+
+    this.isLoading = true;
+
+    const request: InitiateEmailVerificationRequest = {
+      email: this.formData.email,
+      purpose: 'registration'
+    };
+
+    this.authService.resendVerificationCode(request)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          console.log('Verification code resent:', response.message);
+          this.isLoading = false;
+        },
+        error: (error) => {
+          console.error('Failed to resend code:', error);
+          this.errorMessage = error.error?.error?.title || 'Failed to resend verification code';
+          this.isLoading = false;
+        }
+      });
   }
 
   // Toggle password visibility
@@ -95,19 +210,50 @@ export class SignUpComponent {
   // Complete signup
   completeSignup(): void {
     if (!this.formData.mobile || !this.formData.password) {
-      alert('Please fill in all required fields');
+      this.errorMessage = 'Please fill in all required fields';
       return;
     }
 
-    console.log('Registration complete:', this.formData);
+    if (!this.tempToken) {
+      this.errorMessage = 'Verification token missing. Please restart registration.';
+      return;
+    }
 
-    // Show success step
-    this.currentStep = 5;
+    this.isLoading = true;
+    this.authStateService.setRegistering(true);
+
+    const request: CompleteRegistrationRequest = {
+      temp_token: this.tempToken,
+      first_name: this.formData.firstName,
+      last_name: this.formData.lastName,
+      password: this.formData.password,
+      middle_name: this.formData.middleName || undefined,
+      bio: this.formData.bio || undefined,
+      phone_number: this.formData.mobile || undefined
+    };
+
+    this.authService.completeRegistration(request)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          console.log('Registration complete:', response.message);
+          this.currentStep = 5;
+          this.isLoading = false;
+          this.authStateService.setRegistering(false);
+          this.authStateService.clearRegisterState();
+        },
+        error: (error) => {
+          console.error('Registration failed:', error);
+          this.errorMessage = error.error?.error?.title || 'Registration failed';
+          this.isLoading = false;
+          this.authStateService.setRegistering(false);
+          this.authStateService.setRegisterError(this.errorMessage);
+        }
+      });
   }
 
   // Go to login
   goToLogin(): void {
-    console.log('Redirecting to login...');
-    // Add navigation logic here
+    this.router.navigate(['/authentication/signin']);
   }
 }

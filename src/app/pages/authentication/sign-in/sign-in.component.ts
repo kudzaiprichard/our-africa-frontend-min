@@ -1,7 +1,12 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import {Router, RouterLink} from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { Subject, takeUntil } from 'rxjs';
+import {AuthService} from '../../../libs/identity_access/services/auth.service';
+import {AuthStateService} from '../../../libs/identity_access/services/auth-state.service';
+import {LoginRequest} from '../../../libs/identity_access/models/authentication.dtos.interface';
+
 
 @Component({
   selector: 'app-sign-in',
@@ -10,14 +15,27 @@ import {Router, RouterLink} from '@angular/router';
   templateUrl: './sign-in.component.html',
   styleUrls: ['./sign-in.component.scss']
 })
-export class SignInComponent {
-  constructor(private router: Router) {}
+export class SignInComponent implements OnDestroy {
+  private destroy$ = new Subject<void>();
 
   // Form fields
   email: string = '';
   password: string = '';
   rememberMe: boolean = false;
   showPassword: boolean = false;
+  isLoading: boolean = false;
+  errorMessage: string = '';
+
+  constructor(
+    private authService: AuthService,
+    private authStateService: AuthStateService,
+    private router: Router
+  ) {}
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
 
   // Toggle password visibility
   togglePasswordVisibility(): void {
@@ -26,15 +44,41 @@ export class SignInComponent {
 
   // Handle form submission
   onSubmit(): void {
-    console.log('Login attempt:', {
+    this.errorMessage = '';
+
+    if (!this.email || !this.password) {
+      this.errorMessage = 'Please enter your email and password';
+      return;
+    }
+
+    this.isLoading = true;
+    this.authStateService.setLoggingIn(true);
+    this.authStateService.setRememberMe(this.rememberMe);
+
+    const loginRequest: LoginRequest = {
       email: this.email,
-      password: this.password,
-      rememberMe: this.rememberMe
-    });
+      password: this.password
+    };
 
-    // Add your login logic here
-    alert('Login functionality to be implemented');
+    this.authService.login(loginRequest)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          console.log('Login successful:', response.message);
+          this.isLoading = false;
+          this.authStateService.setLoggingIn(false);
+          this.authStateService.handleAuthSuccess();
 
-    this.router.navigate(['/dashboard']);
+          // Navigate to dashboard
+          this.router.navigate(['/dashboard']);
+        },
+        error: (error) => {
+          console.error('Login failed:', error);
+          this.errorMessage = error.error?.error?.title || 'Invalid email or password';
+          this.isLoading = false;
+          this.authStateService.setLoggingIn(false);
+          this.authStateService.setLoginError(this.errorMessage);
+        }
+      });
   }
 }
