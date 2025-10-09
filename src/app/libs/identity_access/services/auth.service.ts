@@ -13,6 +13,7 @@ import { RefreshTokenResponse } from '../models/authentication.dtos.interface';
 import { GetUserProfileResponse } from '../models/user-management.dtos.interface';
 import { CurrentUser } from '../models/auth-state.interface';
 import {API_ENDPOINTS, BaseHttpService} from '../../core';
+import { of } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -162,9 +163,6 @@ export class AuthService {
 
     this.isLoadingSubject.next(true);
 
-    // Emit logout event first
-    this.logoutInitiated.emit();
-
     console.log('📡 Making logout API call to:', API_ENDPOINTS.AUTH.LOGOUT);
 
     return this.baseHttpService.post<LogoutResponse>(
@@ -173,9 +171,6 @@ export class AuthService {
     ).pipe(
       tap(response => {
         console.log('✅ Logout API response received:', response);
-        if (response.value) {
-          this.handleLogout();
-        }
       }),
       map(response => response.value!),
       catchError(error => {
@@ -185,12 +180,21 @@ export class AuthService {
           url: error.url
         });
 
-        // Even if logout fails on server, clear local state
-        this.handleLogout();
-        return throwError(() => error);
+        // If 401, token was already invalid - treat as successful logout
+        if (error.status === 401) {
+          console.log('ℹ️ 401 error - token already invalid, proceeding with logout');
+          // Return empty object to match LogoutResponse type
+          return of({ message: 'Logged out (token was invalid)' } as LogoutResponse);
+        }
+
+        // For other errors, still return success since we'll clear local state
+        console.log('⚠️ Other error - still proceeding with local logout');
+        return of({ message: 'Logged out (with API error)' } as LogoutResponse);
       }),
       finalize(() => {
-        console.log('🏁 Logout process finalized');
+        console.log('🏁 Logout finalize - clearing local state');
+        // ALWAYS clear local state in finalize
+        this.handleLogout();
         this.isLoadingSubject.next(false);
       })
     );
