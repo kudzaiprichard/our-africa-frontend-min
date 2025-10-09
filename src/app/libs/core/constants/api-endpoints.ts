@@ -31,5 +31,39 @@ export const API_ENDPOINTS = {
     PROFILE: '/api/auth/profile',
     CHANGE_PASSWORD: '/api/auth/change-password',
     DEACTIVATE_ACCOUNT: '/api/auth/deactivate'
+  },
+
+  STUDENT: {
+    BASE: '/api/student',
+
+    // Course Browsing & Discovery endpoints
+    COURSES: '/api/student/courses',
+    COURSES_AVAILABLE: '/api/student/courses/available',
+    COURSE_DETAILS: (courseId: string) => `/api/student/courses/${courseId}`,
+    COURSE_MODULES: (courseId: string) => `/api/student/courses/${courseId}/modules`,
+    COURSE_ELIGIBILITY: (courseId: string) => `/api/student/courses/${courseId}/eligibility`,
+
+    // Enrollment Management endpoints
+    ENROLLMENTS: '/api/student/enrollments',
+    ENROLL: (courseId: string) => `/api/student/enrollments/${courseId}`,
+    UNENROLL: (courseId: string) => `/api/student/enrollments/${courseId}`,
+    ENROLLMENT_DETAILS: (courseId: string) => `/api/student/enrollments/${courseId}/details`,
+
+    // Learning & Module Content Access endpoints
+    MODULE_CONTENT: (moduleId: string) => `/api/student/modules/${moduleId}/content`,
+    MODULE_START: (moduleId: string) => `/api/student/modules/${moduleId}/start`,
+    MODULE_COMPLETE: (moduleId: string) => `/api/student/modules/${moduleId}/complete`,
+
+    // Quiz & Exam Management endpoints
+    QUIZ_ATTEMPTS: (quizId: string) => `/api/student/quizzes/${quizId}/attempts`,
+    QUIZ_START: (quizId: string) => `/api/student/quizzes/${quizId}/start`,
+    QUIZ_ANSWER: (attemptId: string) => `/api/student/attempts/${attemptId}/answer`,
+    QUIZ_COMPLETE: (attemptId: string) => `/api/student/attempts/${attemptId}/complete`,
+    QUIZ_RESULTS: (attemptId: string) => `/api/student/attempts/${attemptId}/results`,
+
+    // Progress Tracking & Dashboard endpoints
+    DASHBOARD: '/api/student/dashboard',
+    COURSE_PROGRESS: (courseId: string) => `/api/student/courses/${courseId}/progress`
   }
+
 } as const;
