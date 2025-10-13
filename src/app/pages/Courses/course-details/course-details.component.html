@@ -1,0 +1,375 @@
+<!-- Loading State -->
+<div *ngIf="isLoading" class="loading-container">
+  <div class="spinner"></div>
+  <p>Loading course details...</p>
+</div>
+
+<!-- Error State -->
+<div *ngIf="error && !isLoading" class="error-container">
+  <p>{{ error }}</p>
+  <button (click)="goBack()">Go Back</button>
+</div>
+
+<!-- Course Details Content -->
+<div *ngIf="!isLoading && !error && course">
+
+  <!-- Course Hero Section -->
+  <div class="course-hero">
+    <div class="hero-content-wrapper">
+      <div class="hero-left">
+        <div class="course-category-badge">{{ getCourseCategory() }}</div>
+        <h1 class="course-main-title">{{ course.title }}</h1>
+        <p class="course-description-text">
+          {{ course.description || 'Expand your knowledge with this comprehensive course covering essential topics and practical applications.' }}
+        </p>
+
+        <div class="course-stats-row">
+          <div class="stat-item">
+            <div class="stat-icon-wrapper">
+              <i class="fas fa-book"></i>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ course.module_count || modules.length }} Modules</div>
+              <div class="stat-label">Content</div>
+            </div>
+          </div>
+
+          <div class="stat-item">
+            <div class="stat-icon-wrapper">
+              <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ getEstimatedDuration(course.module_count || modules.length) }}</div>
+              <div class="stat-label">Duration</div>
+            </div>
+          </div>
+
+          <div class="stat-item">
+            <div class="stat-icon-wrapper">
+              <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ getEnrolledStudents() }}</div>
+              <div class="stat-label">Students</div>
+            </div>
+          </div>
+
+          <div class="stat-item">
+            <div class="stat-icon-wrapper">
+              <i class="fas fa-star"></i>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ getCourseRating() }}</div>
+              <div class="stat-label">Rating</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-right">
+        <div class="course-banner-large">
+          <img
+            *ngIf="course.image_url"
+            [src]="course.image_url"
+            [alt]="course.title">
+          <i *ngIf="!course.image_url" class="fas fa-graduation-cap"></i>
+        </div>
+
+        <div
+          class="enrollment-status"
+          [class.not-enrolled]="!isEnrolled()">
+          <div class="status-icon">
+            <i [class]="isEnrolled() ? 'fas fa-check-circle' : 'fas fa-info-circle'"></i>
+          </div>
+          <div class="status-text">
+            <div class="status-title">{{ isEnrolled() ? 'Enrolled' : 'Not Enrolled' }}</div>
+            <div class="status-subtitle">{{ isEnrolled() ? 'Continue your learning' : 'Enroll to start learning' }}</div>
+          </div>
+        </div>
+
+        <div class="action-buttons">
+          <button
+            class="btn-primary"
+            *ngIf="!isEnrolled() && canEnroll()"
+            (click)="enrollInCourse()">
+            <i class="fas fa-graduation-cap"></i>
+            <span>Enroll in Course</span>
+          </button>
+
+          <button
+            class="btn-primary"
+            *ngIf="isEnrolled()"
+            (click)="router.navigate(['/courses/enrollments'])">
+            <i class="fas fa-play"></i>
+            <span>Continue Learning</span>
+          </button>
+
+          <button
+            class="btn-secondary"
+            *ngIf="!canEnroll() && !isEnrolled()">
+            <i class="fas fa-lock"></i>
+            <span>Prerequisites Required</span>
+          </button>
+
+          <button class="btn-secondary" (click)="shareCourse()">
+            <i class="fas fa-share-alt"></i>
+            <span>Share Course</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content Layout -->
+  <div class="content-layout">
+    <!-- Main Column -->
+    <div class="main-column">
+
+      <!-- Prerequisites Section -->
+      <div class="section-card" *ngIf="eligibility && eligibility.missing_prerequisites && eligibility.missing_prerequisites.length > 0">
+        <h2 class="section-title">
+          <i class="fas fa-exclamation-circle"></i>
+          Missing Prerequisites
+        </h2>
+        <div class="prerequisites-list">
+          <div
+            *ngFor="let prereq of eligibility.missing_prerequisites"
+            class="prerequisite-item">
+            <div class="prerequisite-icon">
+              <i class="fas fa-book"></i>
+            </div>
+            <div class="prerequisite-info">
+              <div class="prerequisite-title">{{ prereq.title }}</div>
+              <div class="prerequisite-status incomplete">
+                <i class="fas fa-exclamation-circle"></i>
+                <span>Not Completed</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-card" *ngIf="eligibility && eligibility.eligible">
+        <h2 class="section-title">
+          <i class="fas fa-check-circle"></i>
+          Prerequisites
+        </h2>
+        <div class="empty-state-small">
+          <i class="fas fa-check-circle"></i>
+          <p>All prerequisites met! You're ready to enroll.</p>
+        </div>
+      </div>
+
+      <!-- Course Modules Section -->
+      <div class="section-card" *ngIf="modules && modules.length > 0">
+        <h2 class="section-title">
+          <i class="fas fa-layer-group"></i>
+          Course Curriculum ({{ modules.length }} Modules)
+        </h2>
+        <div class="modules-accordion">
+
+          <div
+            *ngFor="let module of modules; let i = index"
+            class="module-item"
+            [class.expanded]="isModuleExpanded(module.id)">
+            <div class="module-header" (click)="toggleModule(module.id)">
+              <div class="module-number">{{ (i + 1).toString().padStart(2, '0') }}</div>
+              <div class="module-info">
+                <div class="module-title">{{ module.title }}</div>
+                <div class="module-meta">
+                  <div class="module-meta-item">
+                    <i class="fas fa-file-alt"></i>
+                    <span>{{ module.content_count }} content blocks</span>
+                  </div>
+                  <div class="module-meta-item">
+                    <i class="fas fa-clock"></i>
+                    <span>{{ getModuleDuration(module.content_count) }}</span>
+                  </div>
+                </div>
+              </div>
+              <i class="fas fa-chevron-down module-expand-icon"></i>
+            </div>
+            <div class="module-content">
+              <div class="module-description">
+                {{ module.description || 'Explore this module to enhance your learning journey.' }}
+
+                <div class="quiz-badge" *ngIf="module.has_quiz">
+                  <i class="fas fa-question-circle"></i>
+                  <span>Module Quiz Available</span>
+                </div>
+
+                <button
+                  class="view-module-btn"
+                  *ngIf="isEnrolled()"
+                  (click)="viewModuleContent(module.id); $event.stopPropagation()">
+                  <i class="fas fa-play"></i>
+                  <span>Start Module</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Final Exam Section -->
+      <div class="section-card" *ngIf="finalExam">
+        <h2 class="section-title">
+          <i class="fas fa-trophy"></i>
+          Final Examination
+        </h2>
+        <div class="final-exam-card">
+          <div class="exam-icon">
+            <i class="fas fa-clipboard-check"></i>
+          </div>
+          <div class="exam-info">
+            <div class="exam-title">{{ finalExam.title }}</div>
+            <div class="exam-details">
+              <div class="exam-detail-item">
+                <i class="fas fa-question-circle"></i>
+                <span>{{ finalExam.question_count }} questions • Pass mark: {{ finalExam.pass_mark_percentage }}%</span>
+              </div>
+              <div class="exam-detail-item" *ngIf="finalExam.time_limit_minutes">
+                <i class="fas fa-clock"></i>
+                <span>Time limit: {{ finalExam.time_limit_minutes }} minutes</span>
+              </div>
+              <div class="exam-detail-item" *ngIf="finalExam.max_attempts">
+                <i class="fas fa-redo"></i>
+                <span>Maximum {{ finalExam.max_attempts }} attempts</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Side Column -->
+    <div class="side-column">
+
+      <!-- Course Info -->
+      <div class="section-card">
+        <h2 class="section-title">
+          <i class="fas fa-info-circle"></i>
+          Course Information
+        </h2>
+        <div class="info-list">
+          <div class="info-item">
+            <div class="info-icon">
+              <i class="fas fa-signal"></i>
+            </div>
+            <div class="info-text">
+              <div class="info-label">Difficulty Level</div>
+              <div class="info-value">{{ course.level }}</div>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <div class="info-icon">
+              <i class="fas fa-language"></i>
+            </div>
+            <div class="info-text">
+              <div class="info-label">Language</div>
+              <div class="info-value">English</div>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <div class="info-icon">
+              <i class="fas fa-calendar-alt"></i>
+            </div>
+            <div class="info-text">
+              <div class="info-label">Last Updated</div>
+              <div class="info-value">{{ formatDate(course.updated_at) }}</div>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <div class="info-icon">
+              <i class="fas fa-certificate"></i>
+            </div>
+            <div class="info-text">
+              <div class="info-label">Certificate</div>
+              <div class="info-value">{{ finalExam ? 'Yes, upon completion' : 'No certificate' }}</div>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <div class="info-icon">
+              <i class="fas fa-infinity"></i>
+            </div>
+            <div class="info-text">
+              <div class="info-label">Access</div>
+              <div class="info-value">Lifetime</div>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <div class="info-icon">
+              <i class="fas fa-globe"></i>
+            </div>
+            <div class="info-text">
+              <div class="info-label">Status</div>
+              <div class="info-value">{{ course.is_published ? 'Published' : 'Draft' }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- What You'll Learn -->
+      <div class="section-card">
+        <h2 class="section-title">
+          <i class="fas fa-lightbulb"></i>
+          What You'll Learn
+        </h2>
+        <div class="info-list">
+          <div class="info-item">
+            <div class="info-icon">
+              <i class="fas fa-check"></i>
+            </div>
+            <div class="info-text">
+              <div class="info-value">Master the core concepts</div>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <div class="info-icon">
+              <i class="fas fa-check"></i>
+            </div>
+            <div class="info-text">
+              <div class="info-value">Build practical projects</div>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <div class="info-icon">
+              <i class="fas fa-check"></i>
+            </div>
+            <div class="info-text">
+              <div class="info-value">Apply real-world techniques</div>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <div class="info-icon">
+              <i class="fas fa-check"></i>
+            </div>
+            <div class="info-text">
+              <div class="info-value">Gain industry insights</div>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <div class="info-icon">
+              <i class="fas fa-check"></i>
+            </div>
+            <div class="info-text">
+              <div class="info-value">Earn a certificate</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
