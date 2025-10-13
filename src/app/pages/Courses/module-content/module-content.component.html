@@ -1,0 +1,166 @@
+<div class="module-layout" *ngIf="!isLoading && !error && currentParsedContent">
+
+  <!-- Sidebar Navigation -->
+  <div class="sidebar-nav">
+    <div class="module-header-compact">
+      <div class="module-number-badge">{{ formatModuleNumber() }}</div>
+      <h2 class="module-title-compact">{{ moduleTitle }}</h2>
+      <p class="module-description" *ngIf="moduleDescription">
+        {{ moduleDescription }}
+      </p>
+      <div class="module-progress-mini" [style.--progress]="progressPercentage">
+        <div class="progress-circle">
+          <span>{{ progressPercentage }}%</span>
+        </div>
+        <span>{{ completedContents }} of {{ totalContents }} content blocks completed</span>
+      </div>
+    </div>
+
+    <div class="content-list">
+      <div
+        *ngFor="let contentItem of content; let i = index"
+        class="content-list-item"
+        [class.completed]="completedContentIds.has(contentItem.id)"
+        [class.active]="isContentActive(i)"
+        (click)="selectContent(i)">
+        <div class="content-icon">
+          <i *ngIf="completedContentIds.has(contentItem.id)" class="fas fa-check"></i>
+          <i *ngIf="!completedContentIds.has(contentItem.id)" class="fas fa-file-alt"></i>
+        </div>
+        <div class="content-item-info">
+          <div class="content-item-title">
+            {{ contentItem.title || 'Content ' + (i + 1) }}
+          </div>
+          <div class="content-item-type">Content Block</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content Area -->
+  <div class="content-main">
+
+    <!-- Content Header -->
+    <div class="content-header" *ngIf="currentContent">
+      <div class="content-type-badge">
+        <i class="fas fa-file-alt"></i>
+        <span>Text Content</span>
+      </div>
+      <h1 class="content-title">
+        {{ currentContent.title || 'Content ' + (currentContentIndex + 1) }}
+      </h1>
+      <div class="content-meta">
+        <div class="meta-item">
+          <i class="fas fa-clock"></i>
+          <span>{{ getEstimatedReadTime(currentContent) }}</span>
+        </div>
+        <div class="meta-item">
+          <i class="fas fa-list-ol"></i>
+          <span>Content {{ currentContentIndex + 1 }} of {{ totalContents }}</span>
+        </div>
+        <div class="meta-item">
+          <i class="fas fa-calendar"></i>
+          <span>Added: {{ currentContent.created_at | date: 'MMM yyyy' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Content Body -->
+    <div class="content-body" *ngIf="currentParsedContent">
+      <div class="content-text">
+        <!-- Render all content blocks as HTML -->
+        <div class="content-html" [innerHTML]="currentParsedContent.html"></div>
+
+        <!-- Empty State -->
+        <div class="content-empty" *ngIf="!currentParsedContent.html || currentParsedContent.html === ''">
+          <div class="empty-icon">
+            <i class="fas fa-inbox"></i>
+          </div>
+          <p>No content available for this block</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quiz Prompt -->
+    <div class="quiz-prompt" *ngIf="isLastContent && module?.has_quiz && quiz">
+      <div class="quiz-icon-large">
+        <i class="fas fa-question-circle"></i>
+      </div>
+      <div class="quiz-info">
+        <div class="quiz-title">{{ quiz.title }}</div>
+        <div class="quiz-description" *ngIf="quiz.description">
+          {{ quiz.description }}
+        </div>
+        <div class="quiz-description" *ngIf="!quiz.description">
+          Test your knowledge and complete this module by taking the quiz.
+        </div>
+        <div class="quiz-meta">
+          <div class="quiz-meta-item" *ngIf="quiz.time_limit_minutes">
+            <i class="fas fa-clock"></i>
+            <span>{{ quiz.time_limit_minutes }} minutes</span>
+          </div>
+          <div class="quiz-meta-item">
+            <i class="fas fa-trophy"></i>
+            <span>Pass: {{ quiz.pass_mark_percentage }}%</span>
+          </div>
+          <div class="quiz-meta-item">
+            <i class="fas fa-question-circle"></i>
+            <span>{{ quiz.question_count }} questions</span>
+          </div>
+        </div>
+      </div>
+      <button class="btn-take-quiz" (click)="takeQuiz()">
+        <i class="fas fa-play"></i>
+        <span>Take Quiz</span>
+      </button>
+    </div>
+
+    <!-- Navigation Buttons -->
+    <div class="navigation-buttons">
+      <button
+        class="btn-nav"
+        [disabled]="!canGoPrevious"
+        (click)="goToPreviousContent()">
+        <i class="fas fa-arrow-left"></i>
+        <span>Previous Content</span>
+      </button>
+      <button
+        class="btn-nav primary"
+        [disabled]="!canGoNext"
+        (click)="goToNextContent()">
+        <span>{{ isLastContent && module?.has_quiz ? 'Take Quiz' : 'Next Content' }}</span>
+        <i class="fas fa-arrow-right"></i>
+      </button>
+    </div>
+
+    <!-- Back to Course Button -->
+    <div class="back-to-course">
+      <button class="btn-back" (click)="backToCourse()">
+        <i class="fas fa-arrow-left"></i>
+        <span>Back to Course</span>
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Loading State -->
+<div class="loading-container" *ngIf="isLoading">
+  <div class="loading-spinner">
+    <i class="fas fa-spinner fa-spin"></i>
+  </div>
+  <p class="loading-text">Loading module content...</p>
+</div>
+
+<!-- Error State -->
+<div class="error-container" *ngIf="error && !isLoading">
+  <div class="error-icon">
+    <i class="fas fa-exclamation-triangle"></i>
+  </div>
+  <h2 class="error-title">Failed to Load Module</h2>
+  <p class="error-message">{{ error }}</p>
+  <button class="btn-retry" (click)="loadModuleContent()">
+    <i class="fas fa-redo"></i>
+    <span>Retry</span>
+  </button>
+</div>
