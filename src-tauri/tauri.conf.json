@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "our-africa-desktop-app",
   "version": "0.1.0",
-  "identifier": "com.tauri.dev",
+  "identifier": "com.ourafrica.lms",
   "build": {
     "frontendDist": "../dist/our-africa-desktop-app/browser",
     "devUrl": "http://localhost:4200",

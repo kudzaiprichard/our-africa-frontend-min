@@ -1,3 +1,5 @@
+mod database;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -9,8 +11,13 @@ pub fn run() {
             .build(),
         )?;
       }
+
+      // Initialize database synchronously
+      database::initialize_database(&app.handle())?;
+
       Ok(())
     })
+    .plugin(tauri_plugin_sql::Builder::default().build())
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
