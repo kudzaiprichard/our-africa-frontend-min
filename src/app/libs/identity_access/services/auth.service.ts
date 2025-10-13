@@ -14,6 +14,8 @@ import { GetUserProfileResponse } from '../models/user-management.dtos.interface
 import { CurrentUser } from '../models/auth-state.interface';
 import {API_ENDPOINTS, BaseHttpService} from '../../core';
 import { of } from 'rxjs';
+import {ConnectivityService} from '../../../theme/shared/services/connectivity.service';
+import {TauriDatabaseService} from '../../../theme/shared/services/tauri-database.service';
 
 @Injectable({
   providedIn: 'root'
@@ -31,7 +33,9 @@ export class AuthService {
   constructor(
     private baseHttpService: BaseHttpService,
     private tokenService: TokenService,
-    private userDataManager: UserDataManager
+    private userDataManager: UserDataManager,
+    private connectivityService: ConnectivityService,
+    private tauriDb: TauriDatabaseService
   ) {
     this.initializeAuthState();
   }
@@ -129,13 +133,34 @@ export class AuthService {
   login(loginRequest: LoginRequest): Observable<LoginResponse> {
     this.isLoadingSubject.next(true);
 
+    // Always try API first for login (need fresh tokens)
     return this.baseHttpService.post<LoginResponse>(
       API_ENDPOINTS.AUTH.LOGIN,
       loginRequest
     ).pipe(
-      tap(response => {
+      tap(async response => {
         if (response.value) {
           this.handleSuccessfulAuth(response.value);
+
+          // Save to local database for offline access
+          try {
+            if (response.value.access_token && response.value.refresh_token) {
+              await this.tauriDb.saveAuthTokens(
+                response.value.access_token.token,
+                response.value.access_token.expires_at,
+                response.value.refresh_token.token,
+                response.value.refresh_token.expires_at
+              );
+            }
+
+            if (response.value.user) {
+              await this.tauriDb.saveUser(response.value.user);
+            }
+
+            console.log('✅ Auth data saved to local database');
+          } catch (error) {
+            console.error('❌ Failed to save auth data locally:', error);
+          }
         }
       }),
       map(response => response.value!),
@@ -165,39 +190,65 @@ export class AuthService {
 
     console.log('📡 Making logout API call to:', API_ENDPOINTS.AUTH.LOGOUT);
 
-    return this.baseHttpService.post<LogoutResponse>(
-      API_ENDPOINTS.AUTH.LOGOUT,
-      {}
-    ).pipe(
-      tap(response => {
-        console.log('✅ Logout API response received:', response);
-      }),
-      map(response => response.value!),
-      catchError(error => {
-        console.error('❌ Logout API failed:', {
-          status: error.status,
-          message: error.message,
-          url: error.url
-        });
+    // Try API logout if online
+    if (this.connectivityService.isOnline()) {
+      return this.baseHttpService.post<LogoutResponse>(
+        API_ENDPOINTS.AUTH.LOGOUT,
+        {}
+      ).pipe(
+        tap(response => {
+          console.log('✅ Logout API response received:', response);
+        }),
+        map(response => response.value!),
+        catchError(error => {
+          console.error('❌ Logout API failed:', {
+            status: error.status,
+            message: error.message,
+            url: error.url
+          });
 
-        // If 401, token was already invalid - treat as successful logout
-        if (error.status === 401) {
-          console.log('ℹ️ 401 error - token already invalid, proceeding with logout');
-          // Return empty object to match LogoutResponse type
-          return of({ message: 'Logged out (token was invalid)' } as LogoutResponse);
-        }
+          // If 401, token was already invalid - treat as successful logout
+          if (error.status === 401) {
+            console.log('ℹ️ 401 error - token already invalid, proceeding with logout');
+            return of({ message: 'Logged out (token was invalid)' } as LogoutResponse);
+          }
 
-        // For other errors, still return success since we'll clear local state
-        console.log('⚠️ Other error - still proceeding with local logout');
-        return of({ message: 'Logged out (with API error)' } as LogoutResponse);
-      }),
-      finalize(() => {
-        console.log('🏁 Logout finalize - clearing local state');
-        // ALWAYS clear local state in finalize
-        this.handleLogout();
-        this.isLoadingSubject.next(false);
-      })
-    );
+          // For other errors, still return success since we'll clear local state
+          console.log('⚠️ Other error - still proceeding with local logout');
+          return of({ message: 'Logged out (with API error)' } as LogoutResponse);
+        }),
+        finalize(() => {
+          console.log('🏁 Logout finalize - clearing local state');
+          this.handleLogoutWithLocalCleanup();
+          this.isLoadingSubject.next(false);
+        })
+      );
+    } else {
+      // Offline - just clear local data
+      console.log('📵 Offline - clearing local data only');
+      this.handleLogoutWithLocalCleanup();
+      this.isLoadingSubject.next(false);
+      return of({ message: 'Logged out locally (offline)' } as LogoutResponse);
+    }
+  }
+
+  /**
+   * Handle logout with local database cleanup
+   */
+  private async handleLogoutWithLocalCleanup(): Promise<void> {
+    this.tokenService.clearTokens();
+    this.isAuthenticatedSubject.next(false);
+
+    // Clear local database
+    try {
+      await this.tauriDb.clearAuthTokens();
+      console.log('✅ Local auth data cleared');
+    } catch (error) {
+      console.error('❌ Failed to clear local auth data:', error);
+    }
+
+    // Emit logout event
+    this.logoutInitiated.emit();
   }
 
   // ========== USER DATA FETCHING ==========
@@ -206,12 +257,39 @@ export class AuthService {
    * Get current user info (for UserService to call)
    */
   fetchCurrentUser(): Observable<CurrentUser> {
+    // If offline, get from local database
+    if (this.connectivityService.isOffline()) {
+      console.log('📵 Offline - fetching user from local database');
+
+      return new Observable(observer => {
+        this.tauriDb.getCurrentUser()
+          .then(user => {
+            this.userDataFetched.emit(user);
+            observer.next(user);
+            observer.complete();
+          })
+          .catch(error => {
+            console.error('Failed to fetch user from local database:', error);
+            observer.error(error);
+          });
+      });
+    }
+
+    // If online, fetch from API and save to local database
     return this.baseHttpService.get<GetUserProfileResponse>(
       API_ENDPOINTS.AUTH.PROFILE
     ).pipe(
-      tap(response => {
+      tap(async response => {
         if (response.value?.user) {
-          // Emit event with user data - UserService will listen and handle storage
+          // Save to local database
+          try {
+            await this.tauriDb.saveUser(response.value.user);
+            console.log('✅ User data saved to local database');
+          } catch (error) {
+            console.error('❌ Failed to save user data locally:', error);
+          }
+
+          // Emit event with user data
           this.userDataFetched.emit(response.value.user);
         }
       }),
@@ -273,27 +351,61 @@ export class AuthService {
   /**
    * Initialize authentication state on app startup
    */
-  private initializeAuthState(): void {
+  private async initializeAuthState(): Promise<void> {
+    // Check local database first (for offline capability)
+    try {
+      const tokens = await this.tauriDb.getAuthTokens();
+
+      if (tokens.access_token) {
+        const isExpired = await this.tauriDb.checkTokenExpired(tokens.access_token.expires_at);
+
+        if (!isExpired) {
+          // Valid token in local database
+          this.isAuthenticatedSubject.next(true);
+          console.log('✅ Valid tokens found in local database');
+
+          // Try to restore user from local database
+          try {
+            const user = await this.tauriDb.getCurrentUser();
+            this.authStateRestored.emit(true);
+            this.userDataFetched.emit(user);
+            console.log('✅ User restored from local database');
+          } catch (error) {
+            console.warn('⚠️ Failed to restore user from local database');
+          }
+
+          // If online, fetch fresh data in background
+          if (this.connectivityService.isOnline()) {
+            this.fetchCurrentUser().subscribe({
+              next: () => console.log('✅ Fresh user data loaded from API'),
+              error: (error) => console.warn('⚠️ Failed to refresh user data from API:', error)
+            });
+          }
+
+          return;
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Error checking local database tokens:', error);
+    }
+
+    // Fallback to memory tokens (TokenService)
     const hasValidTokens = this.tokenService.hasValidTokens();
     this.isAuthenticatedSubject.next(hasValidTokens);
 
     if (hasValidTokens) {
-      console.log('Valid tokens found, emitting auth restored event');
-
-      // Emit event IMMEDIATELY - UserService will restore from storage
+      console.log('✅ Valid tokens found in memory');
       this.authStateRestored.emit(true);
 
-      // THEN fetch fresh data from API (non-blocking)
-      this.fetchCurrentUser().subscribe({
-        next: (userData) => {
-          console.log('Fresh user data loaded from API');
-        },
-        error: (error) => {
-          console.warn('Failed to refresh user data from API, using cached data:', error);
-        }
-      });
+      // Fetch from API if online
+      if (this.connectivityService.isOnline()) {
+        this.fetchCurrentUser().subscribe({
+          next: () => console.log('✅ User data loaded from API'),
+          error: (error) => console.warn('⚠️ Failed to load user data from API:', error)
+        });
+      }
     } else {
-      console.log('No valid tokens found');
+      console.log('❌ No valid tokens found');
     }
   }
 
