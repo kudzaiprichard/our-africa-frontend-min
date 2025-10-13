@@ -1,0 +1,161 @@
+<!-- Fixed Timer (Top Right) -->
+<div class="quiz-timer" *ngIf="quizAttempt">
+  <div class="timer-icon">
+    <i class="fas" [class.fa-clock]="quizAttempt.timeLimit" [class.fa-infinity]="!quizAttempt.timeLimit"></i>
+  </div>
+  <div class="timer-text" *ngIf="quizAttempt.timeLimit">
+    <div class="timer-label">Time Remaining</div>
+    <div class="timer-value" [class.warning]="isTimeWarning">{{ timeDisplay }}</div>
+  </div>
+  <div class="timer-text" *ngIf="!quizAttempt.timeLimit">
+    <div class="timer-label">Time Limit</div>
+    <div class="timer-value">Unlimited</div>
+  </div>
+</div>
+
+<!-- Quiz Content -->
+<div *ngIf="!isLoading && !error && quizAttempt">
+
+  <!-- Quiz Header -->
+  <div class="quiz-header">
+    <div class="quiz-type-badge">
+      <i class="fas fa-layer-group"></i>
+      <span>Module Quiz</span>
+    </div>
+    <h1 class="quiz-title">{{ quizAttempt.quizTitle }}</h1>
+    <div class="quiz-info-bar">
+      <div class="quiz-info-item">
+        <i class="fas fa-question-circle"></i>
+        <span>{{ totalQuestions }} Questions</span>
+      </div>
+      <div class="quiz-info-item" *ngIf="quizAttempt.timeLimit">
+        <i class="fas fa-clock"></i>
+        <span>{{ quizAttempt.timeLimit }} Minutes</span>
+      </div>
+      <div class="quiz-info-item" *ngIf="!quizAttempt.timeLimit">
+        <i class="fas fa-infinity"></i>
+        <span>No Time Limit</span>
+      </div>
+      <div class="quiz-info-item">
+        <i class="fas fa-trophy"></i>
+        <span>Pass Mark: {{ quizAttempt.passMarkPercentage }}%</span>
+      </div>
+      <div class="quiz-info-item" *ngIf="quizAttempt.maxAttempts">
+        <i class="fas fa-redo"></i>
+        <span>Attempt {{ quizAttempt.attemptNumber }} of {{ quizAttempt.maxAttempts }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Progress Tracker -->
+  <div class="progress-tracker">
+    <div class="progress-info">
+      <div class="progress-label-row">
+        <span class="progress-label">Quiz Progress</span>
+        <span class="progress-numbers">{{ answeredCount }} / {{ totalQuestions }} answered</span>
+      </div>
+      <div class="progress-bar-quiz">
+        <div class="progress-fill-quiz" [style.width.%]="progressPercentage"></div>
+      </div>
+    </div>
+    <div class="question-dots">
+      <div
+        *ngFor="let question of quizAttempt.questions; let i = index"
+        class="question-dot"
+        [class.answered]="isQuestionAnswered(question.id)"
+        [class.current]="isCurrentQuestion(i)"
+        (click)="goToQuestion(i)">
+        {{ i + 1 }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Question Card -->
+  <div class="question-card" *ngIf="currentQuestion">
+    <div class="question-header">
+      <div class="question-number">{{ currentQuestionIndex + 1 }}</div>
+      <div class="question-content">
+        <div class="question-points">
+          <i class="fas fa-star"></i> {{ currentQuestion.points }} {{ currentQuestion.points === 1 ? 'Point' : 'Points' }}
+        </div>
+        <div class="question-text">
+          {{ currentQuestion.question_text }}
+        </div>
+        <div class="question-instruction">Select the correct answer</div>
+      </div>
+    </div>
+
+    <!-- Question Image (Optional) -->
+    <div class="question-image" *ngIf="currentQuestion.image_url">
+      <img [src]="currentQuestion.image_url" [alt]="'Question ' + (currentQuestionIndex + 1)" style="max-width: 100%; max-height: 300px; border-radius: 12px;">
+    </div>
+
+    <!-- Options List -->
+    <div class="options-list">
+      <div
+        *ngFor="let option of currentQuestion.options; let i = index"
+        class="option-item"
+        [class.selected]="isOptionSelected(option.id)"
+        (click)="selectOption(option.id)">
+        <div class="option-radio"></div>
+        <div class="option-letter">{{ getOptionLetter(i) }}</div>
+        <div class="option-text">{{ option.option_text }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation Buttons -->
+  <div class="quiz-navigation">
+    <div style="display: flex; gap: 16px;">
+      <button class="btn-quiz" (click)="previousQuestion()" [disabled]="!canGoPrevious || isSubmitting">
+        <i class="fas fa-arrow-left"></i>
+        <span>Previous</span>
+      </button>
+      <button class="btn-quiz" (click)="cancelQuiz()" [disabled]="isSubmitting" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: #ef4444;">
+        <i class="fas fa-times"></i>
+        <span>Cancel Quiz</span>
+      </button>
+    </div>
+
+    <div style="display: flex; gap: 16px;">
+      <button
+        *ngIf="!isLastQuestion"
+        class="btn-quiz primary"
+        (click)="nextQuestion()"
+        [disabled]="!canGoNext || isSubmitting">
+        <span>Next Question</span>
+        <i class="fas fa-arrow-right"></i>
+      </button>
+      <button
+        *ngIf="isLastQuestion"
+        class="btn-quiz submit"
+        (click)="submitQuiz()"
+        [disabled]="isSubmitting">
+        <i class="fas fa-check"></i>
+        <span>{{ isSubmitting ? 'Submitting...' : 'Submit Quiz' }}</span>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Loading State -->
+<div class="loading-container" *ngIf="isLoading">
+  <div class="loading-spinner">
+    <i class="fas fa-spinner fa-spin"></i>
+  </div>
+  <p class="loading-text">Starting quiz...</p>
+</div>
+
+<!-- Error State -->
+<div class="error-container" *ngIf="error && !isLoading">
+  <div class="error-icon">
+    <i class="fas fa-exclamation-triangle"></i>
+  </div>
+  <h2 class="error-title">Failed to Load Quiz</h2>
+  <p class="error-message">{{ error }}</p>
+  <button class="btn-retry" (click)="startQuizAttempt()">
+    <i class="fas fa-redo"></i>
+    <span>Retry</span>
+  </button>
+</div>

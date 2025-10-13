@@ -1,0 +1,186 @@
+<!-- Loading State -->
+<div class="loading-container" *ngIf="isLoading">
+  <div class="loading-spinner">
+    <i class="fas fa-spinner fa-spin"></i>
+  </div>
+  <p class="loading-text">Loading results...</p>
+</div>
+
+<!-- Error State -->
+<div class="error-container" *ngIf="error && !isLoading">
+  <div class="error-icon">
+    <i class="fas fa-exclamation-triangle"></i>
+  </div>
+  <h2 class="error-title">Failed to Load Results</h2>
+  <p class="error-message">{{ error }}</p>
+  <button class="btn-retry" (click)="loadQuizResults()">
+    <i class="fas fa-redo"></i>
+    <span>Retry</span>
+  </button>
+</div>
+
+<!-- Results Content -->
+<div *ngIf="!isLoading && !error && results">
+
+  <!-- Hero Section with Flexbox -->
+  <div class="results-hero-section">
+    <div class="hero-score-card" [class.passed]="results.passed" [class.failed]="!results.passed">
+      <div class="status-icon-large">
+        <i class="fas" [class]="statusIcon"></i>
+      </div>
+      <h1 class="status-text">{{ statusText }}</h1>
+      <p class="status-subtitle">Quiz completed on {{ results.completedAt | date: 'medium' }}</p>
+      <div class="score-display-large">
+        <div class="score-number">{{ results.score.toFixed(0) }}%</div>
+        <div class="score-label">Final Score</div>
+      </div>
+    </div>
+
+    <div class="hero-stats-card">
+      <h3 class="stats-title">Performance Overview</h3>
+
+      <div class="stat-row">
+        <div class="stat-icon-circle primary">
+          <i class="fas fa-question-circle"></i>
+        </div>
+        <div class="stat-content">
+          <div>
+            <div class="stat-label-text">Total Questions</div>
+            <div class="stat-value-text">{{ results.totalQuestions }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-icon-circle success">
+          <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-content">
+          <div>
+            <div class="stat-label-text">Correct Answers</div>
+            <div class="stat-value-text">{{ results.correctAnswers }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-icon-circle error">
+          <i class="fas fa-times-circle"></i>
+        </div>
+        <div class="stat-content">
+          <div>
+            <div class="stat-label-text">Incorrect Answers</div>
+            <div class="stat-value-text">{{ results.incorrectAnswers }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-icon-circle warning">
+          <i class="fas fa-clock"></i>
+        </div>
+        <div class="stat-content">
+          <div>
+            <div class="stat-label-text">Time Taken</div>
+            <div class="stat-value-text">{{ results.timeTaken }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Review Section -->
+  <div class="review-section">
+    <div class="section-header-flex">
+      <h2 class="section-title-main">
+        <i class="fas fa-list-check"></i>
+        <span>Review Your Answers</span>
+      </h2>
+      <div class="filter-group">
+        <button
+          class="filter-btn"
+          [class.active]="isFilterActive('all')"
+          (click)="applyFilter('all')">
+          All
+        </button>
+        <button
+          class="filter-btn"
+          [class.active]="isFilterActive('correct')"
+          (click)="applyFilter('correct')">
+          Correct ({{ results.correctAnswers }})
+        </button>
+        <button
+          class="filter-btn"
+          [class.active]="isFilterActive('incorrect')"
+          (click)="applyFilter('incorrect')">
+          Incorrect ({{ results.incorrectAnswers }})
+        </button>
+      </div>
+    </div>
+
+    <div class="questions-grid">
+      <div class="question-card" *ngFor="let question of filteredQuestions; let i = index">
+        <div class="question-header-flex">
+          <div class="question-num-badge">{{ i + 1 }}</div>
+          <div class="question-content-area">
+            <div class="question-status-badge" [class.correct]="question.is_correct" [class.incorrect]="!question.is_correct">
+              <i class="fas" [class.fa-check-circle]="question.is_correct" [class.fa-times-circle]="!question.is_correct"></i>
+              <span>{{ question.is_correct ? 'Correct' : 'Incorrect' }}</span>
+            </div>
+            <div class="question-text-main">
+              {{ question.question_text }}
+            </div>
+            <div class="question-points">
+              {{ question.points_earned }} / {{ question.points }} points
+            </div>
+          </div>
+        </div>
+
+        <!-- Question Image -->
+        <div class="question-image-container" *ngIf="question.image_url">
+          <img [src]="question.image_url" [alt]="'Question ' + (i + 1)" class="question-image">
+        </div>
+
+        <div class="options-container">
+          <div
+            class="option-row"
+            *ngFor="let option of question.options; let optIndex = index"
+            [class.correct]="isCorrectOption(question, option.id)"
+            [class.wrong]="isWrongAnswer(question, option.id)">
+            <div class="option-letter-badge">{{ getOptionLetter(optIndex) }}</div>
+            <div class="option-text-content">{{ option.option_text }}</div>
+            <div class="option-indicator-icon" *ngIf="isCorrectOption(question, option.id) || isStudentAnswer(question, option.id)">
+              <i class="fas"
+                 [class.fa-check-circle]="isCorrectOption(question, option.id)"
+                 [class.fa-times-circle]="isWrongAnswer(question, option.id)">
+              </i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div class="empty-state" *ngIf="filteredQuestions.length === 0">
+        <i class="fas fa-inbox"></i>
+        <p>No questions match the selected filter</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="actions-flex">
+    <button class="action-btn secondary" (click)="retakeQuiz()">
+      <i class="fas fa-redo"></i>
+      <span>Retake Quiz</span>
+    </button>
+    <button class="action-btn primary" (click)="continueLearning()">
+      <span>Continue Learning</span>
+      <i class="fas fa-arrow-right"></i>
+    </button>
+    <button class="action-btn success" (click)="downloadResults()">
+      <i class="fas fa-download"></i>
+      <span>Download Results</span>
+    </button>
+  </div>
+
+</div>
