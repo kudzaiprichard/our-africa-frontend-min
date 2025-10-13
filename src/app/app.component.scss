@@ -1,0 +1,45 @@
+.fullscreen-toggle-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 10000;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  opacity: 0;
+  pointer-events: none;
+  backdrop-filter: blur(10px);
+
+  // Show on hover near top-right corner
+  &:hover,
+  &:focus {
+    background: rgba(0, 0, 0, 0.8);
+    transform: scale(1.05);
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+// Show button when hovering near top-right area
+:host:hover .fullscreen-toggle-btn,
+.fullscreen-toggle-btn:focus-visible {
+  opacity: 1;
+  pointer-events: all;
+}
+
+// Alternative: Always show button (remove opacity animation)
+// .fullscreen-toggle-btn {
+//   opacity: 1 !important;
+//   pointer-events: all !important;
+// }

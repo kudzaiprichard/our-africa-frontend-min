@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "our-africa-desktop-app",
+  "productName": "OurAfrica LMS",
   "version": "0.1.0",
   "identifier": "com.ourafrica.lms",
   "build": {
@@ -12,11 +12,19 @@
   "app": {
     "windows": [
       {
-        "title": "our-africa",
-        "width": 800,
-        "height": 600,
+        "title": "OurAfrica LMS",
+        "fullscreen": false,
         "resizable": true,
-        "fullscreen": false
+        "maximized": true,
+        "decorations": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": false,
+        "center": true,
+        "focus": true,
+        "width": 1600,
+        "height": 900,
+        "minWidth": 1600,
+        "minHeight": 900
       }
     ],
     "security": {
@@ -32,6 +40,14 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
+      "wix": {
+        "language": "en-US"
+      }
+    }
   }
 }
