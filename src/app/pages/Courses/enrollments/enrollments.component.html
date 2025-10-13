@@ -1,0 +1,145 @@
+<!-- Loading State -->
+<div *ngIf="isLoading" class="loading-container">
+  <div class="spinner"></div>
+  <p>Loading your enrollments...</p>
+</div>
+
+<!-- Error State -->
+<div *ngIf="error && !isLoading" class="error-container">
+  <p>{{ error }}</p>
+  <button (click)="loadEnrollments()">Retry</button>
+</div>
+
+<!-- Content -->
+<div *ngIf="!isLoading && !error">
+
+  <!-- Enrollments Header -->
+  <div class="enrollments-header">
+    <h1 class="enrollments-title">My Enrollments 📚</h1>
+    <p class="enrollments-subtitle">Track your learning progress and continue where you left off</p>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs-container">
+    <button
+      class="tab-btn"
+      [class.active]="activeTab === 'all'"
+      (click)="setActiveTab('all')">
+      <i class="fas fa-list"></i>
+      <span>All Courses</span>
+      <span class="tab-badge">{{ allCount }}</span>
+    </button>
+    <button
+      class="tab-btn"
+      [class.active]="activeTab === 'in-progress'"
+      (click)="setActiveTab('in-progress')">
+      <i class="fas fa-spinner"></i>
+      <span>In Progress</span>
+      <span class="tab-badge">{{ inProgressCount }}</span>
+    </button>
+    <button
+      class="tab-btn"
+      [class.active]="activeTab === 'completed'"
+      (click)="setActiveTab('completed')">
+      <i class="fas fa-check-circle"></i>
+      <span>Completed</span>
+      <span class="tab-badge">{{ completedCount }}</span>
+    </button>
+  </div>
+
+  <!-- Enrollments Grid -->
+  <div class="enrollments-grid" *ngIf="displayedEnrollments.length > 0">
+    <div
+      *ngFor="let enrollment of displayedEnrollments; let i = index"
+      class="enrollment-card"
+      (click)="viewCourseDetails(enrollment)">
+
+      <div class="enrollment-banner" [style.background]="getBannerGradient(i)">
+        <img
+          *ngIf="enrollment.course.image_url"
+          [src]="enrollment.course.image_url"
+          [alt]="enrollment.course.title">
+        <i
+          *ngIf="!enrollment.course.image_url"
+          class="fas {{ getBannerIcon(i) }}"></i>
+
+        <div
+          class="enrollment-status-badge"
+          [class.completed]="isCompleted(enrollment)">
+          <i [class]="isCompleted(enrollment) ? 'fas fa-check-circle' : 'fas fa-play-circle'"></i>
+          <span>{{ isCompleted(enrollment) ? 'Completed' : 'In Progress' }}</span>
+        </div>
+      </div>
+
+      <div class="enrollment-content">
+        <div class="enrollment-category">{{ getCategory(enrollment) }}</div>
+        <h3 class="enrollment-title">{{ enrollment.course.title }}</h3>
+        <div class="enrollment-date">
+          <i class="fas fa-calendar"></i>
+          <span>
+            {{ isCompleted(enrollment) ? 'Completed: ' : 'Enrolled: ' }}
+            {{ formatDate(isCompleted(enrollment) ? enrollment.completed_at : enrollment.enrolled_at) }}
+          </span>
+        </div>
+
+        <div class="progress-section">
+          <div class="progress-header">
+            <span class="progress-label">Course Progress</span>
+            <span class="progress-percentage">{{ getProgressPercentage(enrollment) }}%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" [style.width]="getProgressBarWidth(enrollment)"></div>
+          </div>
+        </div>
+
+        <div class="enrollment-stats">
+          <div class="enrollment-stat">
+            <i class="fas fa-check-circle"></i>
+            <span>{{ getCompletedModules(enrollment) }}/{{ getTotalModules(enrollment) }} modules</span>
+          </div>
+          <div class="enrollment-stat" *ngIf="!isCompleted(enrollment)">
+            <i class="fas fa-clock"></i>
+            <span>{{ getEstimatedTimeLeft(enrollment) }}</span>
+          </div>
+          <div class="enrollment-stat" *ngIf="isCompleted(enrollment)">
+            <i class="fas fa-trophy"></i>
+            <span>Certificate earned</span>
+          </div>
+        </div>
+
+        <div class="enrollment-actions">
+          <button
+            class="btn-continue"
+            [disabled]="isContinueLoading(enrollment)"
+            (click)="continueLearning(enrollment, $event)">
+            <i [class]="isCompleted(enrollment) ? 'fas fa-certificate' : (isContinueLoading(enrollment) ? 'fas fa-spinner fa-spin' : 'fas fa-play')"></i>
+            <span>{{ isCompleted(enrollment) ? 'View Certificate' : (isContinueLoading(enrollment) ? 'Loading...' : 'Continue Learning') }}</span>
+          </button>
+          <button
+            class="btn-view"
+            (click)="viewProgress(enrollment, $event)">
+            <i [class]="isCompleted(enrollment) ? 'fas fa-redo' : 'fas fa-chart-line'"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <div class="empty-state" *ngIf="displayedEnrollments.length === 0">
+    <div class="empty-icon">
+      <i class="fas fa-inbox"></i>
+    </div>
+    <h3 class="empty-title">No enrollments found</h3>
+    <p class="empty-subtitle">
+      {{ activeTab === 'completed' ? 'You haven\'t completed any courses yet' :
+      activeTab === 'in-progress' ? 'You don\'t have any courses in progress' :
+        'Start your learning journey by browsing our course catalog' }}
+    </p>
+    <button class="btn-browse" (click)="browseCourses()">
+      <i class="fas fa-compass"></i>
+      <span>Browse Courses</span>
+    </button>
+  </div>
+
+</div>
