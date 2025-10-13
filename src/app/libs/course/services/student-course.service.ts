@@ -15,7 +15,6 @@ import {
 import {
   EnrollInCourseRequest,
   EnrollInCourseResponse,
-  UnenrollFromCourseRequest,
   UnenrollFromCourseResponse,
   GetStudentEnrollmentsResponse,
   GetEnrollmentDetailsResponse,
@@ -26,16 +25,21 @@ import {
 // Learning Progress DTOs
 import {
   GetModuleContentForStudentResponse,
+  MarkModuleAsStartedRequest,
   MarkModuleAsStartedResponse,
+  MarkModuleAsCompletedRequest,
   MarkModuleAsCompletedResponse,
   GetQuizAttemptsResponse,
+  StartQuizAttemptRequest,
   StartQuizAttemptResponse,
   SubmitQuizAnswerRequest,
   SubmitQuizAnswerResponse,
+  CompleteQuizAttemptRequest,
   CompleteQuizAttemptResponse,
   GetQuizResultsResponse,
   GetStudentDashboardResponse,
-  GetCourseProgressResponse
+  GetCourseProgressResponse,
+  GetAttemptQuestionsResponse
 } from '../models/learning-progress.dtos.interface';
 
 @Injectable({
@@ -175,9 +179,11 @@ export class StudentCourseService {
   enrollInCourse(courseId: string): Observable<EnrollInCourseResponse> {
     this.isLoadingSubject.next(true);
 
+    const request: EnrollInCourseRequest = { course_id: courseId };
+
     return this.baseHttpService.post<EnrollInCourseResponse>(
       API_ENDPOINTS.STUDENT.ENROLL(courseId),
-      {}
+      request
     ).pipe(
       map(response => response.value!),
       catchError(error => {
@@ -250,9 +256,11 @@ export class StudentCourseService {
   startModule(moduleId: string): Observable<MarkModuleAsStartedResponse> {
     this.isLoadingSubject.next(true);
 
+    const request: MarkModuleAsStartedRequest = { module_id: moduleId };
+
     return this.baseHttpService.post<MarkModuleAsStartedResponse>(
       API_ENDPOINTS.STUDENT.MODULE_START(moduleId),
-      {}
+      request
     ).pipe(
       map(response => response.value!),
       catchError(error => {
@@ -269,9 +277,11 @@ export class StudentCourseService {
   completeModule(moduleId: string): Observable<MarkModuleAsCompletedResponse> {
     this.isLoadingSubject.next(true);
 
+    const request: MarkModuleAsCompletedRequest = { module_id: moduleId };
+
     return this.baseHttpService.post<MarkModuleAsCompletedResponse>(
       API_ENDPOINTS.STUDENT.MODULE_COMPLETE(moduleId),
-      {}
+      request
     ).pipe(
       map(response => response.value!),
       catchError(error => {
@@ -283,6 +293,24 @@ export class StudentCourseService {
   }
 
   // ========== QUIZ & EXAM MANAGEMENT ==========
+
+  /**
+   * Get questions for an existing quiz attempt (for resuming)
+   */
+  getAttemptQuestions(attemptId: string): Observable<GetAttemptQuestionsResponse> {
+    this.isLoadingSubject.next(true);
+
+    return this.baseHttpService.get<GetAttemptQuestionsResponse>(
+      API_ENDPOINTS.STUDENT.ATTEMPT_QUESTIONS(attemptId)
+    ).pipe(
+      map(response => response.value!),
+      catchError(error => {
+        console.error('Get attempt questions failed:', error);
+        return throwError(() => error);
+      }),
+      finalize(() => this.isLoadingSubject.next(false))
+    );
+  }
 
   /**
    * Get all attempts for a quiz
@@ -308,9 +336,11 @@ export class StudentCourseService {
   startQuiz(quizId: string): Observable<StartQuizAttemptResponse> {
     this.isLoadingSubject.next(true);
 
+    const request: StartQuizAttemptRequest = { quiz_id: quizId };
+
     return this.baseHttpService.post<StartQuizAttemptResponse>(
       API_ENDPOINTS.STUDENT.QUIZ_START(quizId),
-      {}
+      request
     ).pipe(
       map(response => response.value!),
       catchError(error => {
@@ -346,9 +376,11 @@ export class StudentCourseService {
   completeQuiz(attemptId: string): Observable<CompleteQuizAttemptResponse> {
     this.isLoadingSubject.next(true);
 
+    const request: CompleteQuizAttemptRequest = { attempt_id: attemptId };
+
     return this.baseHttpService.post<CompleteQuizAttemptResponse>(
       API_ENDPOINTS.STUDENT.QUIZ_COMPLETE(attemptId),
-      {}
+      request
     ).pipe(
       map(response => response.value!),
       catchError(error => {

@@ -60,6 +60,7 @@ export const API_ENDPOINTS = {
     QUIZ_ANSWER: (attemptId: string) => `/api/student/attempts/${attemptId}/answer`,
     QUIZ_COMPLETE: (attemptId: string) => `/api/student/attempts/${attemptId}/complete`,
     QUIZ_RESULTS: (attemptId: string) => `/api/student/attempts/${attemptId}/results`,
+    ATTEMPT_QUESTIONS: (attemptId: string) => `/api/student/attempts/${attemptId}/questions`,
 
     // Progress Tracking & Dashboard endpoints
     DASHBOARD: '/api/student/dashboard',
