@@ -20,8 +20,26 @@ export const routes: Routes = [
     canActivate: [AuthGuard],
     canActivateChild: [AuthGuard],
     loadChildren: () =>
-      import('./pages/dasboard/routes').then(
+      import('./pages/dashboard/routes').then(
         (m) => m.DashboardRoutingModule
+      )
+  },
+  {
+    path: 'assessments',
+    canActivate: [AuthGuard],
+    canActivateChild: [AuthGuard],
+    loadChildren: () =>
+      import('./pages/assessments/routes').then(
+        (m) => m.AssessmentsRoutingModule
+      )
+  },
+  {
+    path: 'courses',
+    canActivate: [AuthGuard],
+    canActivateChild: [AuthGuard],
+    loadChildren: () =>
+      import('./pages/Courses/routes').then(
+        (m) => m.CourseRoutingModule
       )
   },
   {

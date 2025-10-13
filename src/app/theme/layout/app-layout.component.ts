@@ -37,7 +37,6 @@ export class AppLayoutComponent implements OnInit {
   canGoForward: boolean = false;
   currentPageInfo: PageInfo | null = null;
 
-
   // Navigation Service
   private navigationService = new NavigationService();
 
@@ -45,15 +44,17 @@ export class AppLayoutComponent implements OnInit {
   private pageMapping: { [key: string]: PageInfo } = {
     'dashboard': { page: 'dashboard', icon: 'fa-home', label: 'Dashboard' },
     'courses': { page: 'courses', icon: 'fa-book', label: 'Courses' },
+    'assessments': { page: 'assessments', icon: 'fa-tasks', label: 'Assessments' },
     'certificates': { page: 'certificates', icon: 'fa-certificate', label: 'Certificates' },
-    'settings': { page: 'settings', icon: 'fa-cog', label: 'Settings' }
+    'courses/enrollments': { page: 'courses/enrollments', icon: 'fa-user-graduate', label: 'Enrolled Courses' }
   };
 
   constructor(private router: Router) {}
 
   ngOnInit(): void {
-    // Initialize current page info
-    this.updateCurrentPageInfo();
+    // Initialize current page info based on current URL
+    this.handleRouteChange(this.router.url);
+    this.updateNavigationState();
 
     // Listen to route changes
     this.router.events
@@ -78,37 +79,69 @@ export class AppLayoutComponent implements OnInit {
     console.log(this.isFocusMode ? 'Entered Focus Mode' : 'Exited Focus Mode');
   }
 
-  // Navigation Methods
+  // Navigation Methods - for main nav items
   onNavigate(item: NavigationItem): void {
-    if (item.page !== this.currentPage) {
-      this.navigationService.addPage(item.page);
-      this.currentPage = item.page;
-      this.updateNavigationState();
-      this.updateCurrentPageInfo();
+    // Always update navigation and route when a nav item is clicked
+    this.navigationService.addPage(item.page);
+    this.currentPage = item.page;
+    this.updateNavigationState();
+    this.updateCurrentPageInfo();
 
-      // Navigate to the route
-      this.router.navigate([`/${item.page}`]);
-      console.log('Navigating to:', item.page);
+    // Navigate to the route - handle special cases
+    let routePath: string[];
+    switch(item.page) {
+      case 'courses/enrollments':
+        routePath = ['/courses', 'enrollments'];
+        break;
+      default:
+        routePath = [`/${item.page}`];
     }
+
+    this.router.navigate(routePath);
+    console.log('Navigating to:', item.page, 'History:', this.navigationService.getHistory());
   }
 
   onBack(): void {
     if (this.navigationService.goBack()) {
-      this.currentPage = this.navigationService.getCurrentPage();
+      const previousPage = this.navigationService.getCurrentPage();
+      this.currentPage = previousPage;
       this.updateNavigationState();
       this.updateCurrentPageInfo();
-      this.router.navigate([`/${this.currentPage}`]);
-      console.log('Going back to:', this.currentPage);
+
+      // Handle special cases for routing
+      let routePath: string[];
+      switch(previousPage) {
+        case 'courses/enrollments':
+          routePath = ['/courses', 'enrollments'];
+          break;
+        default:
+          routePath = [`/${previousPage}`];
+      }
+
+      this.router.navigate(routePath);
+      console.log('Going back to:', previousPage, 'Index:', this.navigationService.getCurrentIndex());
     }
   }
 
   onForward(): void {
     if (this.navigationService.goForward()) {
-      this.currentPage = this.navigationService.getCurrentPage();
+      const nextPage = this.navigationService.getCurrentPage();
+      this.currentPage = nextPage;
       this.updateNavigationState();
       this.updateCurrentPageInfo();
-      this.router.navigate([`/${this.currentPage}`]);
-      console.log('Going forward to:', this.currentPage);
+
+      // Handle special cases for routing
+      let routePath: string[];
+      switch(nextPage) {
+        case 'courses/enrollments':
+          routePath = ['/courses', 'enrollments'];
+          break;
+        default:
+          routePath = [`/${nextPage}`];
+      }
+
+      this.router.navigate(routePath);
+      console.log('Going forward to:', nextPage, 'Index:', this.navigationService.getCurrentIndex());
     }
   }
 
@@ -123,15 +156,27 @@ export class AppLayoutComponent implements OnInit {
   }
 
   private handleRouteChange(url: string): void {
-    // Extract page name from URL
+    // Extract the main page name from URL (first segment)
     const segments = url.split('/').filter(s => s);
-    const pageName = segments[segments.length - 1] || 'dashboard';
 
-    if (this.pageMapping[pageName] && pageName !== this.currentPage) {
-      this.navigationService.addPage(pageName);
-      this.currentPage = pageName;
+    let mainPage = segments[0] || 'dashboard';
+
+    // Special handling for enrollments - it's under courses but should show as Enrolled Courses
+    if (segments[0] === 'courses' && segments[1] === 'enrollments') {
+      mainPage = 'courses/enrollments';
+    }
+    // Assessments routes should show as "Courses" in main nav (since assessments are part of courses)
+    else if (segments[0] === 'assessments') {
+      mainPage = 'courses';
+    }
+
+    // Check if this is one of our main pages
+    if (this.pageMapping[mainPage] && mainPage !== this.currentPage) {
+      this.navigationService.addPage(mainPage);
+      this.currentPage = mainPage;
       this.updateNavigationState();
       this.updateCurrentPageInfo();
+      console.log('Route changed to main page:', mainPage, 'History:', this.navigationService.getHistory());
     }
   }
 }

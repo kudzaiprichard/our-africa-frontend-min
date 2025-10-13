@@ -29,6 +29,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   z-index: 1;
+  padding-top: 100px;
 }
 
 /* Custom Scrollbar */
@@ -62,6 +63,9 @@
 .main-content {
   position: relative;
   min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .main-content::before {
@@ -84,9 +88,8 @@
 /* Content Wrapper - Centered with Equal Margins */
 .content-wrapper {
   max-width: 1400px;
+  width: 100%;
   margin: 0 auto;
-  margin-top: 120px;
-  margin-bottom: 40px;
   padding: 40px;
   position: relative;
   z-index: 3;
@@ -95,9 +98,76 @@
 
 .main-content.focus-mode .content-wrapper {
   max-width: 100%;
-  margin-top: 40px;
-  margin-bottom: 40px;
   padding: 60px 80px;
+}
+
+.loading-container, .error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: 60px 20px;
+}
+
+.loading-spinner {
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, var(--primary-color), var(--innovation-purple));
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: white;
+  margin-bottom: 20px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.loading-text {
+  font-size: 16px;
+  color: var(--dark-text-muted);
+}
+
+.error-icon {
+  width: 80px;
+  height: 80px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  color: #ef4444;
+  margin-bottom: 20px;
+}
+
+.error-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--dark-text);
+  margin-bottom: 12px;
+}
+
+.error-message {
+  font-size: 16px;
+  color: var(--dark-text-muted);
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.btn-retry {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, var(--primary-color), var(--innovation-purple));
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Responsive Media Queries */
@@ -114,12 +184,10 @@
 @media (max-width: 768px) {
   .content-wrapper {
     padding: 20px;
-    margin-top: 100px;
   }
 
   .main-content.focus-mode .content-wrapper {
     padding: 40px;
-    margin-top: 30px;
   }
 }
 
@@ -131,10 +199,6 @@
 
 @media (max-height: 600px) {
   .content-wrapper {
-    margin-top: 90px;
-  }
-
-  .main-content.focus-mode .content-wrapper {
-    margin-top: 30px;
+    padding: 30px 20px;
   }
 }

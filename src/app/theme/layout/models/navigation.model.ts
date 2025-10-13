@@ -22,7 +22,13 @@ export class NavigationService {
   private currentIndex: number = 0;
 
   addPage(page: string): void {
-    this.history = this.history.slice(0, this.currentIndex + 1);
+    // Remove forward history if we're navigating to a new page from middle of history
+    if (this.currentIndex < this.history.length - 1) {
+      this.history = this.history.slice(0, this.currentIndex + 1);
+    }
+
+    // Always add the page to history, even if it's the same as current
+    // This allows clicking the same nav link multiple times to create history entries
     this.history.push(page);
     this.currentIndex = this.history.length - 1;
   }
@@ -52,7 +58,7 @@ export class NavigationService {
   }
 
   getCurrentPage(): string {
-    return this.history[this.currentIndex];
+    return this.history[this.currentIndex] || 'dashboard';
   }
 
   getHistory(): string[] {

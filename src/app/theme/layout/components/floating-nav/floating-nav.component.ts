@@ -22,7 +22,7 @@ export class FloatingNavComponent {
 
   // Navigation items - reversed order (bottom to top)
   navItems: NavigationItem[] = [
-    { page: 'settings', label: 'Settings', icon: 'fa-cog' },
+    { page: 'courses/enrollments', label: 'Enrolled Courses', icon: 'fa-user-graduate' },
     { page: 'certificates', label: 'Certificates', icon: 'fa-certificate' },
     { page: 'courses', label: 'Courses', icon: 'fa-book' },
     { page: 'dashboard', label: 'Dashboard', icon: 'fa-home' }
