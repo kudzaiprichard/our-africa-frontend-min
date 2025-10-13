@@ -1,0 +1,209 @@
+<!-- Loading State -->
+<div *ngIf="isLoading" class="loading-container">
+  <div class="spinner"></div>
+  <p>Loading courses...</p>
+</div>
+
+<!-- Error State -->
+<div *ngIf="error && !isLoading" class="error-container">
+  <p>{{ error }}</p>
+  <button (click)="loadCourses()">Retry</button>
+</div>
+
+<!-- Catalog Content -->
+<div *ngIf="!isLoading && !error">
+  <!-- Catalog Header -->
+  <div class="catalog-header">
+    <h1 class="catalog-title">Explore Courses 📚</h1>
+    <p class="catalog-subtitle">Discover your next learning adventure from our comprehensive course catalog</p>
+  </div>
+
+  <!-- Search and Quick Filters -->
+  <div class="filter-search-section">
+    <div class="search-bar-container">
+      <i class="fas fa-search search-icon"></i>
+      <input
+        type="text"
+        class="search-bar"
+        placeholder="Search courses, topics, or instructors..."
+        [(ngModel)]="searchQuery"
+        (input)="onSearch()">
+    </div>
+    <div class="filters-row">
+      <div
+        *ngFor="let category of categories"
+        class="filter-chip"
+        [class.active]="selectedCategory === category"
+        (click)="selectCategory(category)">
+        {{ category }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Layout with Sidebar and Courses -->
+  <div class="courses-layout">
+
+    <!-- Sidebar Filters -->
+    <div class="sidebar-filters">
+      <div class="filter-section">
+        <div class="filter-title">Level</div>
+        <div
+          *ngFor="let level of levelOptions"
+          class="filter-option"
+          [class.checked]="isLevelChecked(level)"
+          (click)="toggleLevelFilter(level)">
+          <div class="filter-checkbox">
+            <i class="fas fa-check"></i>
+          </div>
+          <span>{{ level }}</span>
+        </div>
+      </div>
+
+      <div class="filter-section">
+        <div class="filter-title">Duration</div>
+        <div
+          *ngFor="let duration of durationOptions"
+          class="filter-option"
+          [class.checked]="isDurationChecked(duration)"
+          (click)="toggleDurationFilter(duration)">
+          <div class="filter-checkbox">
+            <i class="fas fa-check"></i>
+          </div>
+          <span>{{ duration }}</span>
+        </div>
+      </div>
+
+      <div class="filter-section">
+        <div class="filter-title">Features</div>
+        <div
+          *ngFor="let feature of featureOptions"
+          class="filter-option"
+          [class.checked]="isFeatureChecked(feature)"
+          (click)="toggleFeatureFilter(feature)">
+          <div class="filter-checkbox">
+            <i class="fas fa-check"></i>
+          </div>
+          <span>{{ feature }}</span>
+        </div>
+      </div>
+
+      <div class="filter-section">
+        <div class="filter-title">Rating</div>
+        <div
+          *ngFor="let rating of ratingOptions"
+          class="filter-option"
+          [class.checked]="isRatingChecked(rating)"
+          (click)="toggleRatingFilter(rating)">
+          <div class="filter-checkbox">
+            <i class="fas fa-check"></i>
+          </div>
+          <span>{{ rating }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Courses Grid -->
+    <div class="courses-main">
+      <div class="results-header">
+        <div class="results-count">
+          Showing {{ displayedCourses.length }} of {{ totalCourses }} courses
+        </div>
+        <select class="sort-dropdown" [(ngModel)]="sortBy" (change)="onSortChange()">
+          <option *ngFor="let option of sortOptions" [value]="option">{{ option }}</option>
+        </select>
+      </div>
+
+      <!-- Empty State -->
+      <div *ngIf="displayedCourses.length === 0" class="empty-state">
+        <i class="fas fa-search"></i>
+        <h3>No courses found</h3>
+        <p>Try adjusting your search or filters to find what you're looking for.</p>
+      </div>
+
+      <!-- Courses Grid -->
+      <div class="courses-grid" *ngIf="displayedCourses.length > 0">
+        <div
+          *ngFor="let course of displayedCourses; let i = index"
+          class="course-card"
+          (click)="viewCourseDetails(course.id)">
+          <div class="course-banner" [style.background]="getCourseGradient(i)">
+            <img
+              *ngIf="course.image_url"
+              [src]="course.image_url"
+              [alt]="course.title">
+            <i *ngIf="!course.image_url" class="fas {{ getCourseIcon(i) }}"></i>
+            <div *ngIf="getCourseBadge(course)" class="course-badge">
+              {{ getCourseBadge(course) }}
+            </div>
+          </div>
+          <div class="course-content">
+            <div class="course-category">{{ getCourseCategory(course) }}</div>
+            <h3 class="course-title">{{ course.title }}</h3>
+            <p class="course-description">
+              {{ course.description || 'Expand your knowledge with this comprehensive course.' }}
+            </p>
+
+            <div class="course-meta">
+              <div class="course-meta-left">
+                <div class="course-meta-item">
+                  <i class="fas fa-book"></i>
+                  <span>{{ course.module_count }} modules</span>
+                </div>
+                <div class="course-meta-item">
+                  <i class="fas fa-clock"></i>
+                  <span>{{ getEstimatedDuration(course.duration) }}</span>
+                </div>
+                <div class="course-meta-item">
+                  <i class="fas fa-signal"></i>
+                  <span>{{ course.level }}</span>
+                </div>
+              </div>
+              <div class="course-rating">
+                <i class="fas fa-star"></i>
+                <span>{{ getCourseRating(course) }}</span>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <button
+              *ngIf="!course.is_published"
+              class="enroll-btn"
+              disabled
+              style="opacity: 0.5; cursor: not-allowed;">
+              Coming Soon
+            </button>
+            <button
+              *ngIf="course.is_published"
+              class="enroll-btn"
+              (click)="enrollInCourse(course.id, $event)">
+              Enroll Now
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination" *ngIf="totalPages > 1">
+        <div
+          class="page-btn"
+          [class.disabled]="currentPage === 1"
+          (click)="previousPage()">
+          <i class="fas fa-chevron-left"></i>
+        </div>
+        <div
+          *ngFor="let page of pageNumbers"
+          class="page-btn"
+          [class.active]="currentPage === page"
+          (click)="goToPage(page)">
+          {{ page }}
+        </div>
+        <div
+          class="page-btn"
+          [class.disabled]="currentPage === totalPages"
+          (click)="nextPage()">
+          <i class="fas fa-chevron-right"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
