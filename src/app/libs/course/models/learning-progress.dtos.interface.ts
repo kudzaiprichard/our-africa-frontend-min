@@ -1,140 +1,224 @@
-// ============ Module Content Access Features ============
+// ============================================================================
+// CORE DATA STRUCTURES (Building Blocks)
+// ============================================================================
+
+export interface ModuleProgressBasic {
+  id: string;
+  enrollment_id: string;
+  module_id: string;
+  status: 'not_started' | 'in_progress' | 'completed';
+  started_at?: string;
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ModuleWithProgress {
+  id: string;
+  course_id: string;
+  title: string;
+  description?: string;
+  order: number;
+  content_count: number;
+  has_quiz: boolean;
+  created_at: string;
+  updated_at: string;
+  progress: ModuleProgressBasic;
+  is_locked: boolean;
+  quiz_status?: 'not_started' | 'in_progress' | 'passed' | 'failed';
+}
+
+export interface ContentBlockForStudent {
+  id: string;
+  module_id: string;
+  title?: string;
+  content_data: any;
+  order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QuizForStudent {
+  id: string;
+  title: string;
+  description?: string;
+  quiz_type: 'module_quiz' | 'final_exam';
+  module_id?: string;
+  course_id?: string;
+  time_limit_minutes?: number;
+  pass_mark_percentage: number;
+  max_attempts?: number;
+  attempt_reset_hours: number;
+  shuffle_questions: boolean;
+  question_count: number;
+  student_best_score?: number;
+  student_attempts_count: number;
+  student_can_attempt: boolean;
+  student_passed: boolean;
+}
+
+export interface QuestionOptionForStudent {
+  id: string;
+  question_id: string;
+  option_text: string;
+  order: number;
+}
+
+export interface QuestionForQuizAttempt {
+  id: string;
+  quiz_id: string;
+  question_text: string;
+  image_url?: string;
+  order: number;
+  points: number;
+  options: QuestionOptionForStudent[];
+}
+
+export interface QuestionOptionWithCorrectAnswer {
+  id: string;
+  question_id: string;
+  option_text: string;
+  is_correct: boolean;
+  order: number;
+}
+
+export interface QuestionWithAnswerResult {
+  id: string;
+  quiz_id: string;
+  question_text: string;
+  image_url?: string;
+  order: number;
+  points: number;
+  options: QuestionOptionWithCorrectAnswer[];
+  student_selected_option_id?: string;
+  correct_option_id: string;
+  is_correct: boolean;
+  points_earned: number;
+}
+
+export interface QuizAttemptBasic {
+  id: string;
+  student_id: string;
+  quiz_id: string;
+  attempt_number: number;
+  status: 'in_progress' | 'completed' | 'abandoned';
+  started_at: string;
+  completed_at?: string;
+  score?: number;
+  passed?: boolean;
+  time_remaining_seconds?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QuizAnswerBasic {
+  id: string;
+  attempt_id: string;
+  question_id: string;
+  selected_option_id: string;
+  is_correct: boolean;
+  points_earned: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CourseBasicForProgress {
+  id: string;
+  title: string;
+  description?: string;
+  image_url?: string;
+  module_count: number;
+  categories: string[];
+  categories_display: string[];
+  level: 'beginner' | 'intermediate' | 'advanced';
+  duration: number;
+}
+
+export interface EnrollmentBasicForProgress {
+  id: string;
+  student_id: string;
+  course_id: string;
+  status: 'active' | 'completed' | 'dropped';
+  enrolled_at: string;
+  completed_at?: string;
+}
+
+export interface EnrollmentWithCourseAndProgressSummary {
+  id: string;
+  student_id: string;
+  course_id: string;
+  status: 'active' | 'completed' | 'dropped';
+  enrolled_at: string;
+  completed_at?: string;
+  course: CourseBasicForProgress;
+  completed_modules: number;
+  total_modules: number;
+  completion_percentage: number;
+  last_accessed_at?: string;
+  next_module_id?: string;
+}
+
+// ============================================================================
+// MODULE CONTENT ACCESS
+// ============================================================================
 
 export interface GetModuleContentForStudentRequest {
-  student_id: string;
   module_id: string;
 }
 
 export interface GetModuleContentForStudentResponse {
-  module: {
-    id: string;
-    course_id: string;
-    title: string;
-    description?: string;
-    order: number;
-    created_at: string;
-    updated_at: string;
-  };
-  content: Array<{
-    id: string;
-    module_id: string;
-    content_type: 'text' | 'image' | 'video';
-    text_content?: string;
-    image_url?: string;
-    video_url?: string;
-    caption?: string;
-    order: number;
-    created_at: string;
-  }>;
-  progress: {
-    id: string;
-    student_id: string;
-    module_id: string;
-    status: 'not_started' | 'in_progress' | 'completed';
-    started_at?: string;
-    completed_at?: string;
-  };
-  quiz?: {
-    id: string;
-    title: string;
-    description?: string;
-    time_limit_minutes?: number;
-    pass_mark_percentage: number;
-    max_attempts?: number;
-  };
+  module: ModuleWithProgress;
+  content: ContentBlockForStudent[];
+  quiz?: QuizForStudent;
 }
 
 export interface MarkModuleAsStartedRequest {
-  student_id: string;
   module_id: string;
 }
 
 export interface MarkModuleAsStartedResponse {
   message: string;
-  progress: {
-    id: string;
-    student_id: string;
-    module_id: string;
-    status: string;
-    started_at: string;
-    completed_at?: string;
-  };
+  progress: ModuleProgressBasic;
 }
 
 export interface MarkModuleAsCompletedRequest {
-  student_id: string;
   module_id: string;
 }
 
 export interface MarkModuleAsCompletedResponse {
   message: string;
-  progress: {
-    id: string;
-    student_id: string;
-    module_id: string;
-    status: string;
-    started_at: string;
-    completed_at: string;
-  };
+  progress: ModuleProgressBasic;
+  course_completed: boolean;
+  next_module_id?: string;
 }
 
-// ============ Quiz Attempt Features ============
-
-export interface GetQuizAttemptsRequest {
-  student_id: string;
-  quiz_id: string;
-}
-
-export interface GetQuizAttemptsResponse {
-  attempts: Array<{
-    id: string;
-    student_id: string;
-    quiz_id: string;
-    status: 'in_progress' | 'completed' | 'abandoned';
-    score?: number;
-    passed?: boolean;
-    started_at: string;
-    completed_at?: string;
-    attempt_number: number;
-  }>;
-  remaining_attempts?: number;
-  next_attempt_available_at?: string;
-}
+// ============================================================================
+// QUIZ ATTEMPT OPERATIONS
+// ============================================================================
 
 export interface StartQuizAttemptRequest {
-  student_id: string;
   quiz_id: string;
 }
 
 export interface StartQuizAttemptResponse {
   message: string;
-  attempt: {
-    id: string;
-    student_id: string;
-    quiz_id: string;
-    status: string;
-    started_at: string;
-    attempt_number: number;
-  };
-  questions: Array<{
-    id: string;
-    quiz_id: string;
-    question_text: string;
-    question_image_url?: string;
-    points: number;
-    order: number;
-    options: Array<{
-      id: string;
-      question_id: string;
-      option_text: string;
-      order: number;
-    }>;
-  }>;
-  time_limit_minutes?: number;
+  attempt: QuizAttemptBasic;
+  quiz: QuizForStudent;
+  questions: QuestionForQuizAttempt[];
+}
+
+export interface GetAttemptQuestionsRequest {
+  attempt_id: string;
+}
+
+export interface GetAttemptQuestionsResponse {
+  attempt: QuizAttemptBasic;
+  quiz: QuizForStudent;
+  questions: QuestionForQuizAttempt[];
+  submitted_answers: { [question_id: string]: string };
 }
 
 export interface SubmitQuizAnswerRequest {
-  student_id: string;
   attempt_id: string;
   question_id: string;
   selected_option_id: string;
@@ -142,171 +226,79 @@ export interface SubmitQuizAnswerRequest {
 
 export interface SubmitQuizAnswerResponse {
   message: string;
-  answer: {
-    id: string;
-    attempt_id: string;
-    question_id: string;
-    selected_option_id: string;
-    answered_at: string;
-  };
+  answer: QuizAnswerBasic;
+  answers_submitted: number;
+  total_questions: number;
 }
 
 export interface CompleteQuizAttemptRequest {
-  student_id: string;
   attempt_id: string;
 }
 
 export interface CompleteQuizAttemptResponse {
   message: string;
-  attempt: {
-    id: string;
-    student_id: string;
-    quiz_id: string;
-    status: string;
-    score: number;
-    passed: boolean;
-    started_at: string;
-    completed_at: string;
-  };
+  attempt: QuizAttemptBasic;
+  quiz: QuizForStudent;
   score: number;
   passed: boolean;
   total_questions: number;
   correct_answers: number;
+  points_earned: number;
+  points_possible: number;
+  can_retake: boolean;
+  next_attempt_available_at?: string;
 }
 
 export interface GetQuizResultsRequest {
-  student_id: string;
   attempt_id: string;
 }
 
 export interface GetQuizResultsResponse {
-  attempt: {
-    id: string;
-    student_id: string;
-    quiz_id: string;
-    status: string;
-    score: number;
-    passed: boolean;
-    started_at: string;
-    completed_at: string;
-  };
-  questions_with_answers: Array<{
-    question: {
-      id: string;
-      question_text: string;
-      question_image_url?: string;
-      points: number;
-    };
-    selected_option: {
-      id: string;
-      option_text: string;
-      is_correct: boolean;
-    };
-    correct_option: {
-      id: string;
-      option_text: string;
-    };
-    is_correct: boolean;
-    points_earned: number;
-  }>;
+  attempt: QuizAttemptBasic;
+  quiz: QuizForStudent;
+  questions_with_answers: QuestionWithAnswerResult[];
   score: number;
   passed: boolean;
 }
 
-// ============ Progress Tracking Features ============
-
-export interface GetStudentDashboardRequest {
-  student_id: string;
+export interface GetQuizAttemptsRequest {
+  quiz_id: string;
 }
 
-export interface GetStudentDashboardResponse {
-  active_enrollments: Array<{
-    id: string;
-    student_id: string;
-    course_id: string;
-    enrolled_at: string;
-    course: {
-      id: string;
-      title: string;
-      description?: string;
-      banner_image_url?: string;
-    };
-    progress: {
-      completion_percentage: number;
-      completed_modules: number;
-      total_modules: number;
-    };
-  }>;
-  completed_courses: Array<{
-    id: string;
-    course_id: string;
-    completed_at: string;
-    course: {
-      id: string;
-      title: string;
-      description?: string;
-      banner_image_url?: string;
-    };
-  }>;
-  in_progress_courses: Array<{
-    id: string;
-    course_id: string;
-    enrolled_at: string;
-    course: {
-      id: string;
-      title: string;
-      description?: string;
-      banner_image_url?: string;
-    };
-    progress: {
-      completion_percentage: number;
-      completed_modules: number;
-      total_modules: number;
-    };
-  }>;
-  total_courses: number;
-  total_completed: number;
+export interface GetQuizAttemptsResponse {
+  quiz: QuizForStudent;
+  attempts: QuizAttemptBasic[];
+  best_score?: number;
+  remaining_attempts?: number;
+  next_attempt_available_at?: string;
 }
+
+// ============================================================================
+// PROGRESS TRACKING
+// ============================================================================
 
 export interface GetCourseProgressRequest {
-  student_id: string;
   course_id: string;
 }
 
 export interface GetCourseProgressResponse {
-  course: {
-    id: string;
-    title: string;
-    description?: string;
-    banner_image_url?: string;
-  };
-  enrollment: {
-    id: string;
-    student_id: string;
-    course_id: string;
-    enrolled_at: string;
-    completed_at?: string;
-  };
-  modules_progress: Array<{
-    module: {
-      id: string;
-      title: string;
-      description?: string;
-      order: number;
-    };
-    progress: {
-      status: 'not_started' | 'in_progress' | 'completed';
-      started_at?: string;
-      completed_at?: string;
-    };
-    quiz_attempts?: Array<{
-      id: string;
-      score?: number;
-      passed?: boolean;
-      completed_at?: string;
-    }>;
-  }>;
+  course: CourseBasicForProgress;
+  enrollment: EnrollmentBasicForProgress;
+  modules_progress: ModuleWithProgress[];
   completion_percentage: number;
   completed_modules: number;
   total_modules: number;
+  next_module_id?: string;
+  can_take_final_exam: boolean;
+  final_exam_status?: 'not_started' | 'in_progress' | 'passed' | 'failed';
+}
+
+export interface GetStudentDashboardResponse {
+  active_enrollments: EnrollmentWithCourseAndProgressSummary[];
+  completed_courses: EnrollmentWithCourseAndProgressSummary[];
+  in_progress_courses: EnrollmentWithCourseAndProgressSummary[];
+  total_courses: number;
+  total_completed: number;
+  total_in_progress: number;
+  continue_learning?: EnrollmentWithCourseAndProgressSummary;
 }
