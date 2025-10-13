@@ -6,6 +6,9 @@ import {environment} from '../../../environments/environment';
 export const API_ENDPOINTS = {
   BASE_URL: environment.apiUrl,
 
+  // Health check endpoint
+  HEALTH: '/api/health',
+
   // Auth endpoints - matches identity_api_bp Blueprint
   AUTH: {
     BASE: '/api/auth',
