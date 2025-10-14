@@ -62,6 +62,7 @@ export interface QuestionOptionForStudent {
   question_id: string;
   option_text: string;
   order: number;
+  is_correct: boolean;
 }
 
 export interface QuestionForQuizAttempt {
@@ -170,6 +171,7 @@ export interface GetModuleContentForStudentResponse {
   module: ModuleWithProgress;
   content: ContentBlockForStudent[];
   quiz?: QuizForStudent;
+  questions?: QuestionForQuizAttempt[];
 }
 
 export interface MarkModuleAsStartedRequest {
@@ -195,6 +197,15 @@ export interface MarkModuleAsCompletedResponse {
 // ============================================================================
 // QUIZ ATTEMPT OPERATIONS
 // ============================================================================
+
+export interface GetQuizQuestionsForOfflineRequest {
+  quiz_id: string;
+}
+
+export interface GetQuizQuestionsForOfflineResponse {
+  quiz: QuizForStudent;
+  questions: QuestionForQuizAttempt[];
+}
 
 export interface StartQuizAttemptRequest {
   quiz_id: string;

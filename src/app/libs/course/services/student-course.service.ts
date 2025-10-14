@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import {Observable, BehaviorSubject, throwError, from} from 'rxjs';
-import { tap, map, catchError, finalize } from 'rxjs/operators';
+import {tap, map, catchError, finalize, switchMap} from 'rxjs/operators';
 import { API_ENDPOINTS, BaseHttpService } from '../../core';
 import { HttpParams } from '@angular/common/http';
 
@@ -39,7 +39,7 @@ import {
   GetQuizResultsResponse,
   GetStudentDashboardResponse,
   GetCourseProgressResponse,
-  GetAttemptQuestionsResponse
+  GetAttemptQuestionsResponse, GetQuizQuestionsForOfflineResponse
 } from '../models/learning-progress.dtos.interface';
 import {ConnectivityService} from '../../../theme/shared/services/connectivity.service';
 import {TauriDatabaseService} from '../../../theme/shared/services/tauri-database.service';
@@ -216,71 +216,264 @@ export class StudentCourseService {
   enrollInCourse(courseId: string): Observable<EnrollInCourseResponse> {
     this.isLoadingSubject.next(true);
 
+    console.log('🎯 enrollInCourse called with courseId:', courseId);
+
     const request: EnrollInCourseRequest = { course_id: courseId };
 
-    // If offline, queue for sync
-    if (this.connectivityService.isOffline()) {
-      console.log('📵 Offline - queueing enrollment for sync');
+    // SYNCHRONOUS connectivity check - waits for backend health response
+    return from(
+      this.connectivityService.isOnlineSync().then(isOnline => {
+        const hasNetwork = this.connectivityService.hasNetworkConnection();
+        const isOffline = !isOnline;
 
-      return from(
-        this.tauriDb.getCurrentUser().then(async user => {
-          // Create temporary enrollment
-          const tempEnrollment = {
-            id: `temp_${Date.now()}`,
-            student_id: user.id,
-            course_id: courseId,
-            status: 'active',
-            enrolled_at: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
+        console.log('🌐 Connectivity status (synchronous check):', {
+          isOffline,
+          isOnline,
+          hasNetwork,
+          backendHealthy: this.connectivityService.isBackendHealthy()
+        });
 
-          // Save to local database
-          await this.tauriDb.saveEnrollment(tempEnrollment);
-
-          // Add to sync queue
-          await this.tauriDb.addToSyncQueue(
-            'create',
-            'enrollments',
-            tempEnrollment.id,
-            { course_id: courseId }
-          );
-
-          return {
-            message: 'Enrollment queued (offline)',
-            enrollment: tempEnrollment
-          } as EnrollInCourseResponse;
-        })
-      ).pipe(
-        finalize(() => this.isLoadingSubject.next(false))
-      );
-    }
-
-    // If online, enroll via API
-    return this.baseHttpService.post<EnrollInCourseResponse>(
-      API_ENDPOINTS.STUDENT.ENROLL(courseId),
-      request
+        return { isOffline, hasNetwork };
+      })
     ).pipe(
-      tap(async response => {
-        if (response.value?.enrollment) {
-          // Save to local database
-          try {
-            await this.tauriDb.saveEnrollment(response.value.enrollment);
-            if (response.value.enrollment.course) {
-              await this.tauriDb.saveCourse(response.value.enrollment.course);
-            }
-            console.log('✅ Enrollment saved to local database');
-          } catch (error) {
-            console.error('❌ Failed to save enrollment locally:', error);
-          }
+      switchMap(({ isOffline, hasNetwork }) => {
+        // If offline AND no network, use offline enrollment
+        if (isOffline && !hasNetwork) {
+          console.log('📵 Offline - checking if course is available locally');
+
+          return from(
+            this.tauriDb.getCurrentUser().then(async user => {
+              console.log('👤 Current user:', user);
+
+              // Check if course exists in local database
+              let course;
+              try {
+                course = await this.tauriDb.getCourseById(courseId);
+                console.log('✅ Course found in local database:', course);
+              } catch (error) {
+                console.error('❌ Course not found in local database:', error);
+                throw new Error('Cannot enroll offline: This course is not available offline. Please connect to the internet to enroll in this course.');
+              }
+
+              // Create temporary enrollment
+              const tempEnrollment = {
+                id: `temp_${Date.now()}`,
+                student_id: user.id,
+                course_id: courseId,
+                status: 'active',
+                enrolled_at: new Date().toISOString(),
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                course: course
+              };
+
+              console.log('💾 Saving temp enrollment:', tempEnrollment);
+
+              // Save to local database
+              await this.tauriDb.saveEnrollment(tempEnrollment);
+              console.log('✅ Enrollment saved to local database');
+
+              // Add to sync queue
+              await this.tauriDb.addToSyncQueue(
+                'create',
+                'enrollments',
+                tempEnrollment.id,
+                { course_id: courseId }
+              );
+              console.log('✅ Added to sync queue');
+
+              return {
+                message: 'Enrollment queued (offline) - Will sync when online',
+                enrollment: tempEnrollment
+              } as EnrollInCourseResponse;
+            })
+          ).pipe(
+            catchError(error => {
+              console.error('❌ Offline enrollment failed:', error);
+              return throwError(() => error);
+            })
+          );
         }
+
+        // ONLINE PATH: Fetch course & modules, enroll, THEN download content
+        console.log('🌐 Online path - fetching course data and enrolling...');
+
+        return this.baseHttpService.get<GetCourseResponse>(
+          API_ENDPOINTS.STUDENT.COURSE_DETAILS(courseId)
+        ).pipe(
+          // Step 1: Save course to local database (with proper level handling)
+          tap(async courseResponse => {
+            if (courseResponse.value?.course) {
+              try {
+                const course = courseResponse.value.course;
+                // Ensure level is valid
+                const validLevels = ['beginner', 'intermediate', 'advanced'];
+                if (!validLevels.includes(course.level)) {
+                  console.warn('⚠️ Invalid course level:', course.level, '- setting to beginner');
+                  course.level = 'beginner';
+                }
+
+                console.log('💾 Saving course to local database:', course);
+                await this.tauriDb.saveCourse(course);
+                console.log('✅ Course saved to local database');
+              } catch (error) {
+                console.error('❌ Failed to save course locally:', error);
+                // Continue - enrollment can still proceed
+              }
+            }
+          }),
+          // Step 2: Fetch and save course modules
+          switchMap(courseResponse => {
+            console.log('📚 Fetching course modules...');
+            return this.baseHttpService.get<GetCourseModulesResponse>(
+              API_ENDPOINTS.STUDENT.COURSE_MODULES(courseId)
+            ).pipe(
+              tap(async modulesResponse => {
+                if (modulesResponse.value?.modules && modulesResponse.value.modules.length > 0) {
+                  try {
+                    console.log('💾 Saving modules to local database:', modulesResponse.value.modules.length);
+                    await this.tauriDb.saveModulesBulk(modulesResponse.value.modules);
+                    console.log('✅ Modules saved to local database');
+                  } catch (error) {
+                    console.error('❌ Failed to save modules locally:', error);
+                    // Continue - enrollment can still proceed
+                  }
+                }
+              }),
+              map(modulesResponse => ({
+                courseResponse,
+                modules: modulesResponse.value?.modules || []
+              }))
+            );
+          }),
+          // Step 3: ENROLL in the course (must happen before fetching content)
+          switchMap(({ courseResponse, modules }) => {
+            console.log('📝 Enrolling in course...');
+            return this.baseHttpService.post<EnrollInCourseResponse>(
+              API_ENDPOINTS.STUDENT.ENROLL(courseId),
+              request
+            ).pipe(
+              map(enrollResponse => ({
+                courseResponse,
+                modules,
+                enrollResponse
+              }))
+            );
+          }),
+          // Step 4: Save enrollment to local database
+          tap(async ({ enrollResponse }) => {
+            console.log('📥 Enrollment API response received');
+
+            if (enrollResponse.value?.enrollment) {
+              try {
+                console.log('💾 Saving enrollment to local database');
+                await this.tauriDb.saveEnrollment(enrollResponse.value.enrollment);
+                console.log('✅ Enrollment saved to local database');
+              } catch (error) {
+                console.error('❌ Failed to save enrollment locally:', error);
+                // Don't throw - enrollment succeeded on server
+              }
+            }
+          }),
+          // Step 5: NOW fetch and save module content (after enrollment grants access)
+          switchMap(({ courseResponse, modules, enrollResponse }) => {
+            if (modules.length === 0) {
+              console.log('ℹ️ No modules to fetch content for');
+              return from(Promise.resolve(enrollResponse));
+            }
+
+            console.log('📝 NOW fetching content for', modules.length, 'modules (post-enrollment)...');
+
+            // Fetch content for all modules in parallel
+            const moduleDataPromises = modules.map(async (module: any) => {
+              try {
+                // NOW we have permission to fetch module content
+                const contentResponse = await this.baseHttpService.get<GetModuleContentForStudentResponse>(
+                  API_ENDPOINTS.STUDENT.MODULE_CONTENT(module.id)
+                ).toPromise();
+
+                if (contentResponse?.value) {
+                  // Save module (ensure it's in local DB)
+                  if (contentResponse.value.module) {
+                    await this.tauriDb.saveModule(contentResponse.value.module);
+                  }
+
+                  // Save content blocks
+                  if (contentResponse.value.content && contentResponse.value.content.length > 0) {
+                    await this.tauriDb.saveContentBlocksBulk(contentResponse.value.content);
+                    console.log(`✅ Saved ${contentResponse.value.content.length} content blocks for module ${module.title}`);
+                  }
+
+                  // Save quiz if exists
+                  if (contentResponse.value.quiz) {
+                    await this.tauriDb.saveQuiz(contentResponse.value.quiz);
+                    console.log(`✅ Saved quiz for module ${module.title}`);
+
+                    // IMPORTANT: Fetch and save quiz questions for offline use
+                    try {
+                      const quizId = contentResponse.value.quiz.id;
+
+                      // Check if MODULE_CONTENT already includes questions (at root level)
+                      let questions = contentResponse.value.questions;
+
+                      // If questions not included, fetch them separately using proper DTO
+                      if (!questions || questions.length === 0) {
+                        console.log(`📝 Questions not included in module content, fetching separately for quiz ${quizId}...`);
+
+                        try {
+                          // Use the proper offline questions endpoint with DTO
+                          const questionsResponse = await this.baseHttpService.get<GetQuizQuestionsForOfflineResponse>(
+                            API_ENDPOINTS.STUDENT.QUIZ_QUESTIONS(quizId)
+                          ).toPromise();
+
+                          if (questionsResponse?.value?.questions) {
+                            questions = questionsResponse.value.questions;
+                            console.log(`✅ Fetched ${questions.length} questions separately for quiz ${quizId}`);
+                          }
+                        } catch (fetchError) {
+                          console.warn(`⚠️ Could not fetch quiz questions for offline use. They will be available when student starts the quiz online.`, fetchError);
+                        }
+                      }
+
+                      // Save questions if we have them (either from module content or separate fetch)
+                      if (questions && questions.length > 0) {
+                        await this.tauriDb.saveQuestionsBulk(questions);
+                        console.log(`✅ Saved ${questions.length} questions for quiz ${quizId}`);
+                      }
+                    } catch (error) {
+                      console.error(`❌ Failed to save quiz questions for module ${module.id}:`, error);
+                      // Continue - quiz metadata is saved, questions can be fetched later
+                    }
+                  }
+                }
+
+                return contentResponse?.value;
+              } catch (error) {
+                console.error(`❌ Failed to fetch/save content for module ${module.id}:`, error);
+                return null;
+              }
+            });
+
+            // Wait for all content to be downloaded
+            return from(Promise.all(moduleDataPromises)).pipe(
+              map(() => enrollResponse)
+            );
+          }),
+          // Step 6: Return the enrollment response
+          map(enrollResponse => {
+            console.log('✅ Enrollment complete - Course content downloaded for offline access');
+            return enrollResponse.value!;
+          }),
+          catchError(error => {
+            console.error('❌ Enroll in course failed:', error);
+            return throwError(() => error);
+          })
+        );
       }),
-      map(response => response.value!),
-      catchError(error => {
-        console.error('Enroll in course failed:', error);
-        return throwError(() => error);
-      }),
-      finalize(() => this.isLoadingSubject.next(false))
+      finalize(() => {
+        console.log('🏁 enrollInCourse finalize');
+        this.isLoadingSubject.next(false);
+      })
     );
   }
 
