@@ -58,12 +58,29 @@ export class UserService {
    * Set current user from user data
    */
   setCurrentUser(userData: CurrentUser): void {
+    // Ensure all required fields are present
+    const completeUserData: CurrentUser = {
+      id: userData.id,
+      email: userData.email,
+      first_name: userData.first_name,
+      middle_name: userData.middle_name,
+      last_name: userData.last_name,
+      role: userData.role,
+      bio: userData.bio,
+      phone_number: userData.phone_number,
+      email_verified: userData.email_verified ?? false,
+      is_active: userData.is_active ?? true,
+      created_at: userData.created_at,
+      updated_at: userData.updated_at,
+      last_login: userData.last_login
+    };
+
     // Update in-memory state
-    this.currentUserSignal.set(userData);
-    this.currentUserSubject.next(userData);
+    this.currentUserSignal.set(completeUserData);
+    this.currentUserSubject.next(completeUserData);
 
     // Save to persistent storage
-    this.userDataManager.saveUserData(userData);
+    this.userDataManager.saveUserData(completeUserData);
 
     console.log('User data set and saved to storage');
   }
@@ -91,9 +108,26 @@ export class UserService {
   private setCurrentUserFromStored(userData: CurrentUser): void {
     console.log('🔄 Setting user from stored data:', userData);
 
+    // Ensure all required fields are present
+    const completeUserData: CurrentUser = {
+      id: userData.id,
+      email: userData.email,
+      first_name: userData.first_name,
+      middle_name: userData.middle_name,
+      last_name: userData.last_name,
+      role: userData.role,
+      bio: userData.bio,
+      phone_number: userData.phone_number,
+      email_verified: userData.email_verified ?? false,
+      is_active: userData.is_active ?? true,
+      created_at: userData.created_at,
+      updated_at: userData.updated_at,
+      last_login: userData.last_login
+    };
+
     // Only update in-memory state, don't save to storage again
-    this.currentUserSignal.set(userData);
-    this.currentUserSubject.next(userData);
+    this.currentUserSignal.set(completeUserData);
+    this.currentUserSubject.next(completeUserData);
 
     console.log('🔄 Signals updated. Current user:', this.getCurrentUserValue());
   }

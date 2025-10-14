@@ -59,6 +59,7 @@ export const API_ENDPOINTS = {
 
     // Quiz & Exam Management endpoints
     QUIZ_ATTEMPTS: (quizId: string) => `/api/student/quizzes/${quizId}/attempts`,
+    QUIZ_QUESTIONS: (quizId: string) => `/api/student/quizzes/${quizId}/questions`, // ✅ NEW: Get questions for offline
     QUIZ_START: (quizId: string) => `/api/student/quizzes/${quizId}/start`,
     QUIZ_ANSWER: (attemptId: string) => `/api/student/attempts/${attemptId}/answer`,
     QUIZ_COMPLETE: (attemptId: string) => `/api/student/attempts/${attemptId}/complete`,

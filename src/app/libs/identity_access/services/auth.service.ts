@@ -111,9 +111,34 @@ export class AuthService {
       API_ENDPOINTS.AUTH.REGISTER_COMPLETE,
       request
     ).pipe(
-      tap(response => {
+      tap(async response => {
         if (response.value) {
           this.handleSuccessfulAuth(response.value);
+
+          // Save to local database for offline access
+          try {
+            if (response.value.access_token && response.value.refresh_token) {
+              await this.tauriDb.saveAuthTokens(
+                response.value.access_token.token,
+                response.value.access_token.expires_at,
+                response.value.refresh_token.token,
+                response.value.refresh_token.expires_at
+              );
+              console.log('✅ Auth tokens saved to local database');
+            }
+
+            if (response.value.user) {
+              // Create user data with full_name from first_name + last_name
+              const userData = {
+                ...response.value.user,
+                full_name: `${response.value.user.first_name} ${response.value.user.last_name}`.trim()
+              };
+              await this.tauriDb.saveUser(userData);
+              console.log('✅ User data saved to local database');
+            }
+          } catch (error) {
+            console.error('❌ Failed to save auth data locally:', error);
+          }
         }
       }),
       map(response => response.value!),
@@ -124,7 +149,6 @@ export class AuthService {
       finalize(() => this.isLoadingSubject.next(false))
     );
   }
-
   // ========== AUTHENTICATION FLOWS ==========
 
   /**
@@ -151,13 +175,18 @@ export class AuthService {
                 response.value.refresh_token.token,
                 response.value.refresh_token.expires_at
               );
+              console.log('✅ Auth tokens saved to local database');
             }
 
             if (response.value.user) {
-              await this.tauriDb.saveUser(response.value.user);
+              // Create user data with full_name from first_name + last_name
+              const userData = {
+                ...response.value.user,
+                full_name: `${response.value.user.first_name} ${response.value.user.last_name}`.trim()
+              };
+              await this.tauriDb.saveUser(userData);
+              console.log('✅ User data saved to local database');
             }
-
-            console.log('✅ Auth data saved to local database');
           } catch (error) {
             console.error('❌ Failed to save auth data locally:', error);
           }
@@ -171,7 +200,6 @@ export class AuthService {
       finalize(() => this.isLoadingSubject.next(false))
     );
   }
-
   /**
    * Logout user
    */
@@ -264,8 +292,13 @@ export class AuthService {
       return new Observable(observer => {
         this.tauriDb.getCurrentUser()
           .then(user => {
-            this.userDataFetched.emit(user);
-            observer.next(user);
+            // Ensure full_name exists
+            const userData = {
+              ...user,
+              full_name: user.full_name || `${user.first_name} ${user.last_name}`.trim()
+            };
+            this.userDataFetched.emit(userData);
+            observer.next(userData);
             observer.complete();
           })
           .catch(error => {
@@ -281,26 +314,37 @@ export class AuthService {
     ).pipe(
       tap(async response => {
         if (response.value?.user) {
+          // Create user data with full_name
+          const userData = {
+            ...response.value.user,
+            full_name: `${response.value.user.first_name} ${response.value.user.last_name}`.trim()
+          };
+
           // Save to local database
           try {
-            await this.tauriDb.saveUser(response.value.user);
+            await this.tauriDb.saveUser(userData);
             console.log('✅ User data saved to local database');
           } catch (error) {
             console.error('❌ Failed to save user data locally:', error);
           }
 
           // Emit event with user data
-          this.userDataFetched.emit(response.value.user);
+          this.userDataFetched.emit(userData);
         }
       }),
-      map(response => response.value!.user),
+      map(response => {
+        const user = response.value!.user;
+        return {
+          ...user,
+          full_name: `${user.first_name} ${user.last_name}`.trim()
+        };
+      }),
       catchError(error => {
         this.handleAuthError(error);
         return throwError(() => error);
       })
     );
   }
-
   // ========== TOKEN MANAGEMENT ==========
 
   /**
