@@ -252,6 +252,11 @@ pub fn save_quiz(db_path: String, quiz_data: String) -> Result<String, String> {
     let quiz: JsonValue = serde_json::from_str(&quiz_data)
         .map_err(|e| format!("Invalid JSON: {}", e))?;
 
+    // Generate timestamps if not provided (for student-facing DTOs)
+    let now = chrono::Utc::now().to_rfc3339();
+    let created_at = quiz["created_at"].as_str().unwrap_or(&now);
+    let updated_at = quiz["updated_at"].as_str().unwrap_or(&now);
+
     conn.execute(
         "INSERT OR REPLACE INTO quizzes
          (id, title, description, quiz_type, module_id, course_id, time_limit_minutes,
@@ -276,8 +281,8 @@ pub fn save_quiz(db_path: String, quiz_data: String) -> Result<String, String> {
             quiz["student_attempts_count"].as_i64(),
             quiz["student_can_attempt"].as_bool(),
             quiz["student_passed"].as_bool(),
-            quiz["created_at"].as_str(),
-            quiz["updated_at"].as_str(),
+            created_at,
+            updated_at,
         ],
     )
     .map_err(|e| format!("Failed to save quiz: {}", e))?;
@@ -364,6 +369,11 @@ pub fn save_question(db_path: String, question_data: String) -> Result<String, S
     let question: JsonValue = serde_json::from_str(&question_data)
         .map_err(|e| format!("Invalid JSON: {}", e))?;
 
+    // Generate timestamps if not provided
+    let now = chrono::Utc::now().to_rfc3339();
+    let created_at = question["created_at"].as_str().unwrap_or(&now);
+    let updated_at = question["updated_at"].as_str().unwrap_or(&now);
+
     conn.execute(
         "INSERT OR REPLACE INTO questions
          (id, quiz_id, question_text, image_url, image_file_id, order_index, points, created_at, updated_at)
@@ -376,8 +386,8 @@ pub fn save_question(db_path: String, question_data: String) -> Result<String, S
             question["image_file_id"].as_str(),
             question["order"].as_i64().or(question["order_index"].as_i64()),
             question["points"].as_f64(),
-            question["created_at"].as_str(),
-            question["updated_at"].as_str(),
+            created_at,
+            updated_at,
         ],
     )
     .map_err(|e| format!("Failed to save question: {}", e))?;
@@ -412,8 +422,14 @@ pub fn save_questions_bulk(db_path: String, questions_data: String) -> Result<St
     let questions: Vec<JsonValue> = serde_json::from_str(&questions_data)
         .map_err(|e| format!("Invalid JSON array: {}", e))?;
 
+    let now = chrono::Utc::now().to_rfc3339();
     let mut count = 0;
+
     for question in questions {
+        // Generate timestamps if not provided
+        let created_at = question["created_at"].as_str().unwrap_or(&now);
+        let updated_at = question["updated_at"].as_str().unwrap_or(&now);
+
         conn.execute(
             "INSERT OR REPLACE INTO questions
              (id, quiz_id, question_text, image_url, image_file_id, order_index, points, created_at, updated_at)
@@ -426,8 +442,8 @@ pub fn save_questions_bulk(db_path: String, questions_data: String) -> Result<St
                 question["image_file_id"].as_str(),
                 question["order"].as_i64().or(question["order_index"].as_i64()),
                 question["points"].as_f64(),
-                question["created_at"].as_str(),
-                question["updated_at"].as_str(),
+                created_at,
+                updated_at,
             ],
         )
         .map_err(|e| format!("Failed to save question: {}", e))?;

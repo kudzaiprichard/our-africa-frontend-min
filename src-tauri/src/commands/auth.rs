@@ -127,6 +127,16 @@ pub fn save_user(db_path: String, user_data: String) -> Result<String, String> {
     let user: JsonValue = serde_json::from_str(&user_data)
         .map_err(|e| format!("Invalid JSON: {}", e))?;
 
+    // Generate full_name if not provided
+    let full_name = user["full_name"].as_str()
+        .map(|s| s.to_string())
+        .or_else(|| {
+            let first = user["first_name"].as_str()?;
+            let last = user["last_name"].as_str()?;
+            Some(format!("{} {}", first, last).trim().to_string())
+        })
+        .ok_or("Missing full_name, first_name, or last_name")?;
+
     conn.execute(
         "INSERT OR REPLACE INTO users
          (id, email, first_name, middle_name, last_name, full_name, bio, phone_number,
@@ -138,7 +148,7 @@ pub fn save_user(db_path: String, user_data: String) -> Result<String, String> {
             user["first_name"].as_str(),
             user["middle_name"].as_str(),
             user["last_name"].as_str(),
-            user["full_name"].as_str(),
+            full_name,
             user["bio"].as_str(),
             user["phone_number"].as_str(),
             user["role"].as_str(),
