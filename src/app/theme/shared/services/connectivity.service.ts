@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, fromEvent, merge, interval } from 'rxjs';
-import { map, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
-import {HealthCheckService} from '../../../libs/health/health.service';
+import { BehaviorSubject, Observable, fromEvent, merge, interval, firstValueFrom } from 'rxjs';
+import { map, debounceTime, distinctUntilChanged, switchMap, startWith } from 'rxjs/operators';
+import { HealthCheckService } from '../../../libs/health/health.service';
 
 @Injectable({
   providedIn: 'root'
@@ -9,6 +9,9 @@ import {HealthCheckService} from '../../../libs/health/health.service';
 export class ConnectivityService {
   private onlineSubject = new BehaviorSubject<boolean>(navigator.onLine);
   private backendHealthySubject = new BehaviorSubject<boolean>(false);
+  private lastHealthCheckTime = 0;
+  private healthCheckInProgress = false;
+  private readonly HEALTH_CHECK_CACHE_MS = 5000; // Cache health check for 5 seconds
 
   public online$ = this.onlineSubject.asObservable();
   public backendHealthy$ = this.backendHealthySubject.asObservable();
@@ -27,6 +30,7 @@ export class ConnectivityService {
 
     merge(online$, offline$)
       .pipe(
+        startWith(navigator.onLine), // Emit current state immediately
         debounceTime(300),
         distinctUntilChanged()
       )
@@ -36,7 +40,7 @@ export class ConnectivityService {
 
         // Check backend health when network comes online
         if (isOnline) {
-          this.checkBackendHealth();
+          this.checkBackendHealth(true); // Force check, ignore cache
         } else {
           this.backendHealthySubject.next(false);
         }
@@ -47,8 +51,8 @@ export class ConnectivityService {
    * Initialize periodic backend health checks
    */
   private initializeBackendHealthCheck(): void {
-    // Check immediately on startup
-    this.checkBackendHealth();
+    // Check immediately on startup (with slight delay to let app initialize)
+    setTimeout(() => this.checkBackendHealth(true), 1000);
 
     // Check every 30 seconds
     interval(30000)
@@ -58,6 +62,7 @@ export class ConnectivityService {
       .subscribe(isHealthy => {
         const wasHealthy = this.backendHealthySubject.value;
         this.backendHealthySubject.next(isHealthy);
+        this.lastHealthCheckTime = Date.now();
 
         if (isHealthy && !wasHealthy) {
           console.log('✅ Backend connection restored');
@@ -69,30 +74,103 @@ export class ConnectivityService {
 
   /**
    * Manually check backend health
+   * @param forceCheck - If true, bypass cache and check immediately
    */
-  async checkBackendHealth(): Promise<void> {
+  async checkBackendHealth(forceCheck: boolean = false): Promise<boolean> {
+    // If not online, don't bother checking
     if (!navigator.onLine) {
       this.backendHealthySubject.next(false);
-      return;
+      return false;
     }
 
-    const isHealthy = await this.healthCheckService.isBackendHealthy();
-    this.backendHealthySubject.next(isHealthy);
-    console.log(`🏥 Backend health: ${isHealthy ? 'HEALTHY' : 'UNHEALTHY'}`);
+    // Use cached result if recent (unless force check)
+    const timeSinceLastCheck = Date.now() - this.lastHealthCheckTime;
+    if (!forceCheck && timeSinceLastCheck < this.HEALTH_CHECK_CACHE_MS) {
+      console.log(`🏥 Using cached backend health: ${this.backendHealthySubject.value ? 'HEALTHY' : 'UNHEALTHY'}`);
+      return this.backendHealthySubject.value;
+    }
+
+    // Prevent multiple simultaneous checks
+    if (this.healthCheckInProgress) {
+      console.log('🏥 Health check already in progress, waiting...');
+      return this.backendHealthySubject.value;
+    }
+
+    this.healthCheckInProgress = true;
+
+    try {
+      const isHealthy = await this.healthCheckService.isBackendHealthy();
+      this.backendHealthySubject.next(isHealthy);
+      this.lastHealthCheckTime = Date.now();
+      console.log(`🏥 Backend health check: ${isHealthy ? 'HEALTHY ✅' : 'UNHEALTHY ❌'}`);
+      return isHealthy;
+    } catch (error) {
+      console.error('❌ Backend health check failed:', error);
+      this.backendHealthySubject.next(false);
+      return false;
+    } finally {
+      this.healthCheckInProgress = false;
+    }
   }
 
   /**
-   * Check if currently online (network + backend)
+   * SYNCHRONOUS check if currently online
+   * Performs a BLOCKING health check if status is stale
+   * USE WITH CAUTION - blocks execution until backend responds
+   */
+  async isOnlineSync(): Promise<boolean> {
+    const hasNetwork = this.onlineSubject.value;
+
+    if (!hasNetwork) {
+      return false;
+    }
+
+    const timeSinceLastCheck = Date.now() - this.lastHealthCheckTime;
+
+    // If status is stale (>5 seconds old), do a fresh synchronous check
+    if (timeSinceLastCheck > this.HEALTH_CHECK_CACHE_MS) {
+      console.log('🔄 Status is stale, performing synchronous health check...');
+      const isHealthy = await this.checkBackendHealth(true);
+      return hasNetwork && isHealthy;
+    }
+
+    // Otherwise use cached status
+    return hasNetwork && this.backendHealthySubject.value;
+  }
+
+  /**
+   * Check if currently online (non-blocking, uses cached status)
+   * For operations that need fresh status, use isOnlineSync() instead
    */
   isOnline(): boolean {
-    return this.onlineSubject.value && this.backendHealthySubject.value;
+    const hasNetwork = this.onlineSubject.value;
+    const backendHealthy = this.backendHealthySubject.value;
+
+    // If we have network but backend status is old, trigger a check in background
+    if (hasNetwork && !backendHealthy) {
+      const timeSinceLastCheck = Date.now() - this.lastHealthCheckTime;
+      if (timeSinceLastCheck > this.HEALTH_CHECK_CACHE_MS) {
+        // Trigger async check (don't wait for it)
+        this.checkBackendHealth(false).catch(() => {});
+      }
+    }
+
+    return hasNetwork && backendHealthy;
   }
 
   /**
-   * Check if currently offline
+   * Check if currently offline (non-blocking)
    */
   isOffline(): boolean {
-    return !this.isOnline();
+    return !this.hasNetworkConnection() || !this.backendHealthySubject.value;
+  }
+
+  /**
+   * SYNCHRONOUS check if currently offline
+   * Performs a BLOCKING health check if status is stale
+   */
+  async isOfflineSync(): Promise<boolean> {
+    return !(await this.isOnlineSync());
   }
 
   /**
@@ -103,7 +181,7 @@ export class ConnectivityService {
   }
 
   /**
-   * Check if backend is reachable
+   * Check if backend is reachable (uses cached status)
    */
   isBackendHealthy(): boolean {
     return this.backendHealthySubject.value;
@@ -128,8 +206,17 @@ export class ConnectivityService {
     }
 
     return this.backendHealthy$.pipe(
-      map(isHealthy => isHealthy),
+      map(isHealthy => isHealthy && this.hasNetworkConnection()),
       distinctUntilChanged()
     );
+  }
+
+  /**
+   * Force refresh backend health status (synchronous)
+   * Useful after successful API calls (like login)
+   */
+  async refreshBackendHealth(): Promise<boolean> {
+    console.log('🔄 Force refreshing backend health...');
+    return this.checkBackendHealth(true);
   }
 }
