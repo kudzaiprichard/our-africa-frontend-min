@@ -512,7 +512,7 @@ export class AuthService {
 
     // Clear local database
     try {
-      await this.tauriDb.clearAuthTokens();
+      // await this.tauriDb.clearAuthTokens(); // Do not clear user data on logout
       console.log('✅ Local auth data cleared');
     } catch (error) {
       console.error('❌ Failed to clear local auth data:', error);

@@ -120,8 +120,8 @@ export class AuthOfflineProvider {
    */
   logout(): Observable<LogoutResponse> {
     return from(
-      this.tauriDb.clearAuthTokens().then(() => {
-        console.log('✅ Logged out offline - local data cleared');
+      Promise.resolve().then(() => {
+        console.log('✅ Logged out offline - tokens kept for offline access');
         return {
           message: 'Logged out locally (offline)'
         } as LogoutResponse;
