@@ -158,6 +158,15 @@ export class TauriDatabaseService {
     });
   }
 
+  async getCourseFinalExam(courseId: string): Promise<any> {
+    const dbPath = await this.ensurePath();
+    const examJson = await invoke<string>('get_course_final_exam', {
+      dbPath,
+      courseId
+    });
+    return JSON.parse(examJson);
+  }
+
   // ============================================================================
   // MODULE COMMANDS
   // ============================================================================
@@ -514,5 +523,17 @@ export class TauriDatabaseService {
   async isOfflineMode(): Promise<boolean> {
     const dbPath = await this.ensurePath();
     return invoke<boolean>('is_offline_mode', { dbPath });
+  }
+
+  /**
+   * Get user by email from local database
+   */
+  async getUserByEmail(email: string): Promise<any> {
+    const dbPath = await this.ensurePath();
+    const userJson = await invoke<string>('get_user_by_email', {
+      dbPath,
+      email
+    });
+    return JSON.parse(userJson);
   }
 }
