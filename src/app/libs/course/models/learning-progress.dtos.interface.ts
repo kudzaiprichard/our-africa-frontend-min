@@ -117,7 +117,7 @@ export interface QuizAnswerBasic {
   attempt_id: string;
   question_id: string;
   selected_option_id: string;
-  is_correct: boolean;
+  is_correct: boolean | number;
   points_earned: number;
   created_at: string;
   updated_at: string;
