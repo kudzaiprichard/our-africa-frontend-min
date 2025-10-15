@@ -194,3 +194,34 @@ pub fn get_current_user(db_path: String) -> Result<String, String> {
 
     Ok(user_json)
 }
+
+#[tauri::command]
+pub fn get_user_by_email(db_path: String, email: String) -> Result<String, String> {
+    let conn = get_connection(&db_path)
+        .map_err(|e| format!("Database connection failed: {}", e))?;
+
+    let user_json: String = conn
+        .query_row(
+            "SELECT json_object(
+                'id', id,
+                'email', email,
+                'first_name', first_name,
+                'middle_name', middle_name,
+                'last_name', last_name,
+                'full_name', full_name,
+                'bio', bio,
+                'phone_number', phone_number,
+                'role', role,
+                'is_active', is_active,
+                'profile_image_url', profile_image_url,
+                'profile_image_file_id', profile_image_file_id,
+                'created_at', created_at,
+                'updated_at', updated_at
+             ) FROM users WHERE email = ?1 LIMIT 1",
+            [&email],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("User with email '{}' not found: {}", email, e))?;
+
+    Ok(user_json)
+}

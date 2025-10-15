@@ -415,6 +415,43 @@ pub fn save_question(db_path: String, question_data: String) -> Result<String, S
 }
 
 #[tauri::command]
+pub fn get_course_final_exam(db_path: String, course_id: String) -> Result<String, String> {
+    let conn = get_connection(&db_path)
+        .map_err(|e| format!("Database connection failed: {}", e))?;
+
+    let quiz_json: String = conn
+        .query_row(
+            "SELECT json_object(
+                'id', id,
+                'title', title,
+                'description', description,
+                'quiz_type', quiz_type,
+                'module_id', module_id,
+                'course_id', course_id,
+                'time_limit_minutes', time_limit_minutes,
+                'pass_mark_percentage', pass_mark_percentage,
+                'max_attempts', max_attempts,
+                'attempt_reset_hours', attempt_reset_hours,
+                'shuffle_questions', shuffle_questions,
+                'question_count', question_count,
+                'student_best_score', student_best_score,
+                'student_attempts_count', student_attempts_count,
+                'student_can_attempt', student_can_attempt,
+                'student_passed', student_passed,
+                'created_at', created_at,
+                'updated_at', updated_at
+             ) FROM quizzes
+             WHERE course_id = ?1 AND quiz_type = 'final_exam'
+             LIMIT 1",
+            params![course_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Final exam not found: {}", e))?;
+
+    Ok(quiz_json)
+}
+
+#[tauri::command]
 pub fn save_questions_bulk(db_path: String, questions_data: String) -> Result<String, String> {
     let conn = get_connection(&db_path)
         .map_err(|e| format!("Database connection failed: {}", e))?;

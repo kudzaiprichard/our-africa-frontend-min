@@ -51,6 +51,8 @@ pub fn run() {
       commands::auth::check_token_expired,
       commands::auth::save_user,
       commands::auth::get_current_user,
+      commands::auth::get_user_by_email,
+
       // Course commands
       commands::courses::save_course,
       commands::courses::save_courses_bulk,
@@ -75,6 +77,7 @@ pub fn run() {
       commands::lessons::save_question,
       commands::lessons::save_questions_bulk,
       commands::lessons::get_quiz_questions,
+      commands::lessons::get_course_final_exam,
       // Progress commands
       commands::progress::save_module_progress,
       commands::progress::get_enrollment_progress,

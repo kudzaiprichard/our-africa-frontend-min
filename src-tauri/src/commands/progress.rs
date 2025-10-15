@@ -289,6 +289,16 @@ pub fn save_quiz_answer(db_path: String, answer_data: String) -> Result<String, 
     let answer: JsonValue = serde_json::from_str(&answer_data)
         .map_err(|e| format!("Invalid JSON: {}", e))?;
 
+    // ✅ Convert is_correct to explicit integer for SQLite
+    let is_correct_value = match answer["is_correct"].as_i64() {
+        Some(v) => v,
+        None => match answer["is_correct"].as_bool() {
+            Some(true) => 1,
+            Some(false) => 0,
+            None => 0
+        }
+    };
+
     conn.execute(
         "INSERT OR REPLACE INTO quiz_answers
          (id, attempt_id, question_id, selected_option_id, is_correct, points_earned, created_at, updated_at)
@@ -298,7 +308,7 @@ pub fn save_quiz_answer(db_path: String, answer_data: String) -> Result<String, 
             answer["attempt_id"].as_str(),
             answer["question_id"].as_str(),
             answer["selected_option_id"].as_str(),
-            answer["is_correct"].as_bool(),
+            is_correct_value,  // ✅ Explicit integer
             answer["points_earned"].as_f64(),
             answer["created_at"].as_str(),
             answer["updated_at"].as_str(),
@@ -352,28 +362,30 @@ pub fn calculate_attempt_score(db_path: String, attempt_id: String) -> Result<St
     let score_json: String = conn
         .query_row(
             "SELECT json_object(
-                'total_questions', COUNT(*),
-                'correct_answers', SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END),
-                'points_earned', SUM(points_earned),
-                'points_possible', (
+                'total_questions', COALESCE(COUNT(*), 0),
+                'correct_answers', COALESCE(SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END), 0),
+                'points_earned', COALESCE(SUM(points_earned), 0.0),
+                'points_possible', COALESCE((
                     SELECT SUM(q.points)
                     FROM questions q
                     WHERE q.quiz_id = (
                         SELECT quiz_id FROM quiz_attempts WHERE id = ?1
                     )
-                ),
-                'percentage',
+                ), 0.0),
+                'percentage', COALESCE(
                     ROUND(
-                        CAST(SUM(points_earned) AS FLOAT) /
-                        NULLIF((
+                        CAST(COALESCE(SUM(points_earned), 0.0) AS FLOAT) /
+                        NULLIF(COALESCE((
                             SELECT SUM(q.points)
                             FROM questions q
                             WHERE q.quiz_id = (
                                 SELECT quiz_id FROM quiz_attempts WHERE id = ?1
                             )
-                        ), 0) * 100,
+                        ), 0.0), 0.0) * 100,
                         2
-                    )
+                    ),
+                    0.0
+                )
              ) FROM quiz_answers
              WHERE attempt_id = ?1",
             params![attempt_id],
