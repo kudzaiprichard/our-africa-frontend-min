@@ -34,9 +34,17 @@ pub fn run() {
       // Initialize database
       database::initialize_database(&app.handle())?;
 
-      // Start in fullscreen mode
+      // Get the window
       let window = app.get_webview_window("main").unwrap();
-      let _ = window.set_fullscreen(true);
+
+      // Open DevTools in debug mode
+      #[cfg(debug_assertions)]
+      {
+        window.open_devtools();
+      }
+
+      // TEMPORARILY disabled fullscreen for debugging - change back to true when done
+      let _ = window.set_fullscreen(false);
 
       Ok(())
     })
