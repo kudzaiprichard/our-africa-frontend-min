@@ -5,7 +5,8 @@ import { Observable, from } from 'rxjs';
 import {
   GetAllCoursesResponse,
   GetCourseResponse,
-  GetCourseModulesResponse
+  GetCourseModulesResponse,
+  CourseBasic // CHANGED: Using shared CourseBasic instead of CourseBasicForEnrollment
 } from '../index';
 
 // Enrollment DTOs
@@ -17,9 +18,7 @@ import {
   CheckEnrollmentEligibilityResponse,
   GetAvailableCoursesResponse,
   EnrollmentBasic,
-  CourseBasicForEnrollment,
   ProgressSummary,
-  ModuleSummary,
   EnrollmentWithCourseAndProgress
 } from '../index';
 
@@ -40,11 +39,15 @@ import {
   GetQuizQuestionsForOfflineResponse,
   ModuleProgressBasic,
   ModuleWithProgress,
-  CourseBasicForProgress,
   EnrollmentBasicForProgress,
   EnrollmentWithCourseAndProgressSummary,
   QuizForStudent,
-  QuestionWithAnswerResult
+  QuestionWithAnswerResult,
+  MarkContentAsViewedResponse, // ADDED
+  MarkContentAsCompletedResponse, // ADDED
+  GetModuleResumeDataResponse, // ADDED
+  ContentProgressBasic, // ADDED
+  ModuleBasic // ADDED: Using shared ModuleBasic instead of ModuleSummary
 } from '../index';
 import {TauriDatabaseService} from '../../../theme/shared/services/tauri-database.service';
 
@@ -102,13 +105,14 @@ export class CourseOfflineProvider {
   }
 
   /**
-   * Enhance module with progress information
+   * Enhance module with progress information - FIXED
    */
   private async enhanceModuleWithProgress(moduleId: string, enrollmentId: string): Promise<ModuleWithProgress> {
     const module = await this.tauriDb.getModuleById(moduleId);
     const moduleProgress = await this.tauriDb.getEnrollmentProgress(enrollmentId);
     const progress = moduleProgress.find((p: any) => p.module_id === moduleId);
 
+    // ✅ FIXED: Include all required fields for ModuleProgressBasic
     const progressBasic: ModuleProgressBasic = progress ? {
       id: progress.id,
       enrollment_id: progress.enrollment_id,
@@ -116,6 +120,10 @@ export class CourseOfflineProvider {
       status: progress.status,
       started_at: progress.started_at,
       completed_at: progress.completed_at,
+      auto_completed: progress.auto_completed || false, // ✅ ADDED
+      content_completion_percentage: progress.content_completion_percentage || 0, // ✅ ADDED
+      completed_content_count: progress.completed_content_count || 0, // ✅ ADDED
+      total_content_count: progress.total_content_count || 0, // ✅ ADDED
       created_at: progress.created_at,
       updated_at: progress.updated_at
     } : {
@@ -123,6 +131,10 @@ export class CourseOfflineProvider {
       enrollment_id: enrollmentId,
       module_id: moduleId,
       status: 'not_started',
+      auto_completed: false, // ✅ ADDED
+      content_completion_percentage: 0, // ✅ ADDED
+      completed_content_count: 0, // ✅ ADDED
+      total_content_count: 0, // ✅ ADDED
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -265,7 +277,7 @@ export class CourseOfflineProvider {
   // ========== ENROLLMENT MANAGEMENT ==========
 
   /**
-   * Get all enrollments for current student (from local DB)
+   * Get all enrollments for current student (from local DB) - FIXED
    */
   getMyEnrollments(): Observable<GetStudentEnrollmentsResponse> {
     return from(
@@ -287,13 +299,17 @@ export class CourseOfflineProvider {
 
             const canTakeFinalExam = progressSummary.completed_modules === progressSummary.total_modules;
 
-            const nextModuleSummary: ModuleSummary | undefined = nextModule ? {
+            // ✅ FIXED: Use ModuleBasic instead of ModuleSummary
+            const nextModuleBasic: ModuleBasic | undefined = nextModule ? {
               id: nextModule.id,
+              course_id: nextModule.course_id,
               title: nextModule.title,
               description: nextModule.description,
               order: nextModule.order,
               content_count: nextModule.content_count,
-              has_quiz: nextModule.has_quiz
+              has_quiz: nextModule.has_quiz,
+              created_at: nextModule.created_at,
+              updated_at: nextModule.updated_at
             } : undefined;
 
             return {
@@ -305,9 +321,9 @@ export class CourseOfflineProvider {
               completed_at: enrollment.completed_at,
               created_at: enrollment.created_at,
               updated_at: enrollment.updated_at,
-              course: enrollment.course as CourseBasicForEnrollment,
+              course: enrollment.course as CourseBasic, // ✅ FIXED: Using CourseBasic
               progress: progressSummary,
-              next_module: nextModuleSummary,
+              next_module: nextModuleBasic, // ✅ FIXED: Using ModuleBasic
               can_take_final_exam: canTakeFinalExam
             } as EnrollmentWithCourseAndProgress;
           })
@@ -343,7 +359,7 @@ export class CourseOfflineProvider {
   }
 
   /**
-   * Get detailed enrollment information including progress (from local DB)
+   * Get detailed enrollment information including progress (from local DB) - FIXED
    */
   getEnrollmentDetails(courseId: string): Observable<GetEnrollmentDetailsResponse> {
     return from(
@@ -363,7 +379,7 @@ export class CourseOfflineProvider {
 
         return {
           enrollment: enrollmentBasic as EnrollmentBasic,
-          course: course as CourseBasicForEnrollment,
+          course: course as CourseBasic, // ✅ FIXED: Using CourseBasic
           progress: progressSummary
         } as GetEnrollmentDetailsResponse;
       })
@@ -423,17 +439,22 @@ export class CourseOfflineProvider {
   }
 
   /**
-   * Mark module as started (offline - creates temporary progress)
+   * Mark module as started (offline - creates temporary progress) - FIXED
    */
   startModule(moduleId: string): Observable<MarkModuleAsStartedResponse> {
     return from(
       this.tauriDb.getCurrentUser().then(async user => {
+        // ✅ FIXED: Include all required fields
         const tempProgress: ModuleProgressBasic = {
           id: `temp_progress_${Date.now()}`,
           enrollment_id: 'temp',
           module_id: moduleId,
           status: 'in_progress',
           started_at: new Date().toISOString(),
+          auto_completed: false, // ✅ ADDED
+          content_completion_percentage: 0, // ✅ ADDED
+          completed_content_count: 0, // ✅ ADDED
+          total_content_count: 0, // ✅ ADDED
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
@@ -456,17 +477,22 @@ export class CourseOfflineProvider {
   }
 
   /**
-   * Mark module as completed (offline - creates temporary progress)
+   * Mark module as completed (offline - creates temporary progress) - FIXED
    */
   completeModule(moduleId: string): Observable<MarkModuleAsCompletedResponse> {
     return from(
       this.tauriDb.getCurrentUser().then(async user => {
+        // ✅ FIXED: Include all required fields
         const tempProgress: ModuleProgressBasic = {
           id: `temp_progress_${Date.now()}`,
           enrollment_id: 'temp',
           module_id: moduleId,
           status: 'completed',
           completed_at: new Date().toISOString(),
+          auto_completed: false, // ✅ ADDED
+          content_completion_percentage: 100, // ✅ ADDED
+          completed_content_count: 0, // ✅ ADDED (would need actual count)
+          total_content_count: 0, // ✅ ADDED (would need actual count)
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
@@ -842,7 +868,7 @@ export class CourseOfflineProvider {
     );
   }
 
-// ========== PROGRESS TRACKING & DASHBOARD ==========
+  // ========== PROGRESS TRACKING & DASHBOARD ==========
 
   /**
    * Get student dashboard with all enrollments and progress (from local DB)
@@ -864,7 +890,7 @@ export class CourseOfflineProvider {
               status: enrollment.status,
               enrolled_at: enrollment.enrolled_at,
               completed_at: enrollment.completed_at,
-              course: enrollment.course as CourseBasicForProgress,
+              course: enrollment.course as CourseBasic, // ✅ FIXED: Using CourseBasic
               completed_modules: progressSummary.completed_modules,
               total_modules: progressSummary.total_modules,
               completion_percentage: progressSummary.completion_percentage,
@@ -905,7 +931,7 @@ export class CourseOfflineProvider {
 
   /**
    * Get detailed progress for a specific course (from local DB)
-   * Shows progress for enrolled courses only
+   * Shows progress for enrolled courses only - FIXED
    */
   getCourseProgress(courseId: string): Observable<GetCourseProgressResponse> {
     return from(
@@ -929,10 +955,11 @@ export class CourseOfflineProvider {
         // Get progress for each module
         const moduleProgress = await this.tauriDb.getEnrollmentProgress(enrollmentData.id);
 
-        // Build ModuleWithProgress array
+        // Build ModuleWithProgress array - FIXED
         const modulesWithProgress: ModuleWithProgress[] = modules.map((module: any) => {
           const progress = moduleProgress.find((p: any) => p.module_id === module.id);
 
+          // ✅ FIXED: Include all required fields
           const progressBasic: ModuleProgressBasic = progress ? {
             id: progress.id,
             enrollment_id: progress.enrollment_id,
@@ -940,6 +967,10 @@ export class CourseOfflineProvider {
             status: progress.status,
             started_at: progress.started_at,
             completed_at: progress.completed_at,
+            auto_completed: progress.auto_completed || false, // ✅ ADDED
+            content_completion_percentage: progress.content_completion_percentage || 0, // ✅ ADDED
+            completed_content_count: progress.completed_content_count || 0, // ✅ ADDED
+            total_content_count: progress.total_content_count || 0, // ✅ ADDED
             created_at: progress.created_at,
             updated_at: progress.updated_at
           } : {
@@ -947,6 +978,10 @@ export class CourseOfflineProvider {
             enrollment_id: enrollmentData.id,
             module_id: module.id,
             status: 'not_started',
+            auto_completed: false, // ✅ ADDED
+            content_completion_percentage: 0, // ✅ ADDED
+            completed_content_count: 0, // ✅ ADDED
+            total_content_count: 0, // ✅ ADDED
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           };
@@ -983,7 +1018,7 @@ export class CourseOfflineProvider {
         const { course: _, ...enrollmentBasic } = enrollmentData;
 
         return {
-          course: course as CourseBasicForProgress,
+          course: course as CourseBasic, // ✅ FIXED: Using CourseBasic
           enrollment: enrollmentBasic as EnrollmentBasicForProgress,
           modules_progress: modulesWithProgress,
           completion_percentage: progressSummary.completion_percentage,
@@ -993,6 +1028,121 @@ export class CourseOfflineProvider {
           can_take_final_exam: canTakeFinalExam,
           final_exam_status: canTakeFinalExam ? 'not_started' : undefined
         } as GetCourseProgressResponse;
+      })
+    );
+  }
+
+  // ========== CONTENT PROGRESS TRACKING (NEW SECTION - ADDED) ==========
+
+  /**
+   * Mark content block as viewed (offline - queued for sync)
+   */
+  markContentAsViewed(contentId: string): Observable<MarkContentAsViewedResponse> {
+    return from(
+      this.tauriDb.getCurrentUser().then(async user => {
+        // Create temporary progress
+        const tempProgress: ContentProgressBasic = {
+          id: `temp_content_progress_${Date.now()}`,
+          enrollment_id: 'temp',
+          content_id: contentId,
+          is_completed: false,
+          viewed_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        // Save locally
+        await this.tauriDb.saveContentProgress(tempProgress);
+
+        // Queue for sync
+        await this.tauriDb.addToSyncQueue(
+          'create',
+          'content_progress',
+          tempProgress.id,
+          { content_id: contentId, viewed: true }
+        );
+
+        return {
+          message: 'Content marked as viewed (offline) - Will sync when online',
+          progress: tempProgress,
+          module_auto_completed: false
+        } as MarkContentAsViewedResponse;
+      })
+    );
+  }
+
+  /**
+   * Mark content block as completed (offline - queued for sync)
+   */
+  markContentAsCompleted(contentId: string): Observable<MarkContentAsCompletedResponse> {
+    return from(
+      this.tauriDb.getCurrentUser().then(async user => {
+        // Create temporary progress
+        const tempProgress: ContentProgressBasic = {
+          id: `temp_content_progress_${Date.now()}`,
+          enrollment_id: 'temp',
+          content_id: contentId,
+          is_completed: true,
+          completed_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        // Save locally
+        await this.tauriDb.saveContentProgress(tempProgress);
+
+        // Queue for sync
+        await this.tauriDb.addToSyncQueue(
+          'create',
+          'content_progress',
+          tempProgress.id,
+          { content_id: contentId, completed: true }
+        );
+
+        return {
+          message: 'Content marked as completed (offline) - Will sync when online',
+          progress: tempProgress,
+          module_auto_completed: false
+        } as MarkContentAsCompletedResponse;
+      })
+    );
+  }
+
+  /**
+   * Get resume data for a module (offline)
+   */
+  getModuleResumeData(moduleId: string): Observable<GetModuleResumeDataResponse> {
+    return from(
+      this.tauriDb.getCurrentUser().then(async user => {
+        const content = await this.tauriDb.getModuleContent(moduleId);
+
+        // Get content progress for this module
+        const enrollments = await this.tauriDb.getUserEnrollments(user.id);
+        const module = await this.tauriDb.getModuleById(moduleId);
+        const enrollment = enrollments.find((e: any) => e.course_id === module.course_id);
+
+        if (!enrollment) {
+          throw new Error('Enrollment not found for this module');
+        }
+
+        const contentProgress = await this.tauriDb.getContentProgress(enrollment.id);
+
+        // Find first incomplete content
+        const contentIds = content.map((c: any) => c.id);
+        const completedContentIds = contentProgress
+          .filter((cp: any) => cp.is_completed && contentIds.includes(cp.content_id))
+          .map((cp: any) => cp.content_id);
+
+        const nextIncompleteContent = content.find((c: any) => !completedContentIds.includes(c.id));
+
+        return {
+          next_incomplete_content_id: nextIncompleteContent?.id,
+          completed_content_count: completedContentIds.length,
+          total_content_count: content.length,
+          completion_percentage: content.length > 0
+            ? (completedContentIds.length / content.length) * 100
+            : 0
+        } as GetModuleResumeDataResponse;
       })
     );
   }

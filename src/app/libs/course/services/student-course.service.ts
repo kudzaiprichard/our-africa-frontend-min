@@ -37,7 +37,10 @@ import {
   GetStudentDashboardResponse,
   GetCourseProgressResponse,
   GetAttemptQuestionsResponse,
-  GetQuizQuestionsForOfflineResponse
+  GetQuizQuestionsForOfflineResponse,
+  MarkContentAsViewedResponse, // ADDED
+  MarkContentAsCompletedResponse, // ADDED
+  GetModuleResumeDataResponse // ADDED
 } from '../models/learning-progress.dtos.interface';
 import {CourseOnlineProvider} from '../providers/course-online.provider';
 import {CourseOfflineProvider} from '../providers/course-offline.provider';
@@ -480,6 +483,70 @@ export class StudentCourseService {
       [courseId],
       {
         readOnly: true  // No caching - dynamic data
+      }
+    ).pipe(
+      finalize(() => this.isLoadingSubject.next(false))
+    );
+  }
+
+  // ========== CONTENT PROGRESS TRACKING (NEW SECTION - ADDED) ==========
+
+  /**
+   * Mark a content block as viewed
+   * Tracks when student views content for analytics and progress
+   */
+  markContentAsViewed(contentId: string): Observable<MarkContentAsViewedResponse> {
+    this.isLoadingSubject.next(true);
+
+    return this.dataStrategy.execute<MarkContentAsViewedResponse>(
+      'markContentAsViewed',
+      this.courseOnline,
+      this.courseOffline,
+      [contentId],
+      {
+        saveToLocal: true,     // Cache progress locally
+        queueIfOffline: true   // Sync when online
+      }
+    ).pipe(
+      finalize(() => this.isLoadingSubject.next(false))
+    );
+  }
+
+  /**
+   * Mark a content block as completed
+   * May trigger auto-completion of module if all content done and quiz passed
+   */
+  markContentAsCompleted(contentId: string): Observable<MarkContentAsCompletedResponse> {
+    this.isLoadingSubject.next(true);
+
+    return this.dataStrategy.execute<MarkContentAsCompletedResponse>(
+      'markContentAsCompleted',
+      this.courseOnline,
+      this.courseOffline,
+      [contentId],
+      {
+        saveToLocal: true,     // Cache progress locally
+        queueIfOffline: true   // Sync when online
+      }
+    ).pipe(
+      finalize(() => this.isLoadingSubject.next(false))
+    );
+  }
+
+  /**
+   * Get resume data for a module
+   * Returns where student should continue learning (next incomplete content)
+   */
+  getModuleResumeData(moduleId: string): Observable<GetModuleResumeDataResponse> {
+    this.isLoadingSubject.next(true);
+
+    return this.dataStrategy.execute<GetModuleResumeDataResponse>(
+      'getModuleResumeData',
+      this.courseOnline,
+      this.courseOffline,
+      [moduleId],
+      {
+        readOnly: true  // No caching or sync needed
       }
     ).pipe(
       finalize(() => this.isLoadingSubject.next(false))

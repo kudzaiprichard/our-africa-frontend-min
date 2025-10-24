@@ -536,4 +536,22 @@ export class TauriDatabaseService {
     });
     return JSON.parse(userJson);
   }
+
+  // ============================================================================
+  // CONTENT PROGRESS COMMANDS (NEW - ADDED)
+  // ============================================================================
+
+  async saveContentProgress(progressData: any): Promise<string> {
+    // TODO: Implement Rust command 'save_content_progress'
+    // This should save content progress (viewed/completed) to content_progress table
+    console.warn('TODO: saveContentProgress - Rust implementation pending');
+    return Promise.resolve('Content progress saved (mock)');
+  }
+
+  async getContentProgress(enrollmentId: string): Promise<any[]> {
+    // TODO: Implement Rust command 'get_content_progress'
+    // This should return all content progress records for an enrollment
+    console.warn('TODO: getContentProgress - Rust implementation pending');
+    return Promise.resolve([]);
+  }
 }

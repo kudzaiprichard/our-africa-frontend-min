@@ -40,7 +40,12 @@ import {
   GetStudentDashboardResponse,
   GetCourseProgressResponse,
   GetAttemptQuestionsResponse,
-  GetQuizQuestionsForOfflineResponse
+  GetQuizQuestionsForOfflineResponse,
+  MarkContentAsViewedRequest, // ADDED
+  MarkContentAsViewedResponse, // ADDED
+  MarkContentAsCompletedRequest, // ADDED
+  MarkContentAsCompletedResponse, // ADDED
+  GetModuleResumeDataResponse // ADDED
 } from '../index';
 
 /**
@@ -316,6 +321,47 @@ export class CourseOnlineProvider {
   getCourseProgress(courseId: string): Observable<GetCourseProgressResponse> {
     return this.baseHttpService.get<GetCourseProgressResponse>(
       API_ENDPOINTS.STUDENT.COURSE_PROGRESS(courseId)
+    ).pipe(
+      map(response => response.value!)
+    );
+  }
+
+  // ========== CONTENT PROGRESS TRACKING (NEW SECTION - ADDED) ==========
+
+  /**
+   * Mark a content block as viewed
+   */
+  markContentAsViewed(contentId: string): Observable<MarkContentAsViewedResponse> {
+    const request: MarkContentAsViewedRequest = { content_id: contentId };
+
+    return this.baseHttpService.post<MarkContentAsViewedResponse>(
+      API_ENDPOINTS.STUDENT.CONTENT_VIEW(contentId),
+      request
+    ).pipe(
+      map(response => response.value!)
+    );
+  }
+
+  /**
+   * Mark a content block as completed
+   */
+  markContentAsCompleted(contentId: string): Observable<MarkContentAsCompletedResponse> {
+    const request: MarkContentAsCompletedRequest = { content_id: contentId };
+
+    return this.baseHttpService.post<MarkContentAsCompletedResponse>(
+      API_ENDPOINTS.STUDENT.CONTENT_COMPLETE(contentId),
+      request
+    ).pipe(
+      map(response => response.value!)
+    );
+  }
+
+  /**
+   * Get resume data for a module
+   */
+  getModuleResumeData(moduleId: string): Observable<GetModuleResumeDataResponse> {
+    return this.baseHttpService.get<GetModuleResumeDataResponse>(
+      API_ENDPOINTS.STUDENT.MODULE_RESUME(moduleId)
     ).pipe(
       map(response => response.value!)
     );

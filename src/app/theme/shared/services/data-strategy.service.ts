@@ -229,6 +229,14 @@ export class DataStrategyService {
           }
           break;
 
+        // ADDED: Content progress tracking
+        case 'markContentAsViewed':
+        case 'markContentAsCompleted':
+          if (result.progress) {
+            await this.tauriDb.saveContentProgress(result.progress);
+          }
+          break;
+
         case 'startQuiz':
           if (result.attempt) {
             await this.tauriDb.saveQuizAttempt(result.attempt);
@@ -257,7 +265,6 @@ export class DataStrategyService {
       // Don't throw - saving locally is optional
     }
   }
-
 
   /**
    * Download entire course content for offline use
