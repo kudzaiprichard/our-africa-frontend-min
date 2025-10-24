@@ -2,6 +2,8 @@
 // CORE DATA STRUCTURES (Building Blocks)
 // ============================================================================
 
+import {CourseBasic, ModuleBasic} from './course-management.dtos.interface';
+
 export interface EnrollmentBasic {
   id: string;
   student_id: string;
@@ -13,34 +15,12 @@ export interface EnrollmentBasic {
   updated_at: string;
 }
 
-export interface CourseBasicForEnrollment {
-  id: string;
-  title: string;
-  description?: string;
-  image_url?: string;
-  is_published: boolean;
-  module_count: number;
-  categories: string[];
-  categories_display: string[];
-  level: 'beginner' | 'intermediate' | 'advanced';
-  duration: number;
-}
-
 export interface ProgressSummary {
   completed_modules: number;
   total_modules: number;
   completion_percentage: number;
   last_accessed_module_id?: string;
   last_accessed_at?: string;
-}
-
-export interface ModuleSummary {
-  id: string;
-  title: string;
-  description?: string;
-  order: number;
-  content_count: number;
-  has_quiz: boolean;
 }
 
 export interface EnrollmentWithCourse {
@@ -52,7 +32,7 @@ export interface EnrollmentWithCourse {
   completed_at?: string;
   created_at: string;
   updated_at: string;
-  course: CourseBasicForEnrollment;
+  course: CourseBasic;
 }
 
 export interface EnrollmentWithCourseAndProgress {
@@ -64,9 +44,9 @@ export interface EnrollmentWithCourseAndProgress {
   completed_at?: string;
   created_at: string;
   updated_at: string;
-  course: CourseBasicForEnrollment;
+  course: CourseBasic;
   progress: ProgressSummary;
-  next_module?: ModuleSummary;
+  next_module?: ModuleBasic;
   can_take_final_exam: boolean;
 }
 
@@ -137,7 +117,7 @@ export interface GetEnrollmentDetailsRequest {
 
 export interface GetEnrollmentDetailsResponse {
   enrollment: EnrollmentBasic;
-  course: CourseBasicForEnrollment;
+  course: CourseBasic; // CHANGED: was CourseBasicForEnrollment, now uses shared CourseBasic
   progress: ProgressSummary;
 }
 
@@ -165,7 +145,7 @@ export interface GetAvailableCoursesRequest {
 }
 
 export interface GetAvailableCoursesResponse {
-  courses: CourseBasicForEnrollment[];
+  courses: CourseBasic[];
   total: number;
   page: number;
   per_page: number;

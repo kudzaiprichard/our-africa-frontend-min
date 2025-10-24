@@ -2,6 +2,8 @@
 // CORE DATA STRUCTURES (Building Blocks)
 // ============================================================================
 
+import {CourseBasic} from './course-management.dtos.interface';
+
 export interface ModuleProgressBasic {
   id: string;
   enrollment_id: string;
@@ -9,6 +11,10 @@ export interface ModuleProgressBasic {
   status: 'not_started' | 'in_progress' | 'completed';
   started_at?: string;
   completed_at?: string;
+  auto_completed: boolean;
+  content_completion_percentage: number;
+  completed_content_count: number;
+  total_content_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -117,22 +123,10 @@ export interface QuizAnswerBasic {
   attempt_id: string;
   question_id: string;
   selected_option_id: string;
-  is_correct: boolean | number;
+  is_correct: boolean;
   points_earned: number;
   created_at: string;
   updated_at: string;
-}
-
-export interface CourseBasicForProgress {
-  id: string;
-  title: string;
-  description?: string;
-  image_url?: string;
-  module_count: number;
-  categories: string[];
-  categories_display: string[];
-  level: 'beginner' | 'intermediate' | 'advanced';
-  duration: number;
 }
 
 export interface EnrollmentBasicForProgress {
@@ -151,12 +145,68 @@ export interface EnrollmentWithCourseAndProgressSummary {
   status: 'active' | 'completed' | 'dropped';
   enrolled_at: string;
   completed_at?: string;
-  course: CourseBasicForProgress;
+  course: CourseBasic;
   completed_modules: number;
   total_modules: number;
   completion_percentage: number;
   last_accessed_at?: string;
   next_module_id?: string;
+}
+
+// ============================================================================
+// CONTENT PROGRESS TRACKING (NEW SECTION - ADDED)
+// ============================================================================
+
+export interface ContentProgressBasic {
+  id: string;
+  enrollment_id: string;
+  content_id: string;
+  is_completed: boolean;
+  viewed_at?: string;
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContentBlockWithProgress {
+  id: string;
+  module_id: string;
+  content_data: any;
+  order: number;
+  created_at: string;
+  updated_at: string;
+  progress?: ContentProgressBasic;
+}
+
+export interface MarkContentAsViewedRequest {
+  content_id: string;
+}
+
+export interface MarkContentAsViewedResponse {
+  message: string;
+  progress: ContentProgressBasic;
+  module_auto_completed: boolean;
+}
+
+export interface MarkContentAsCompletedRequest {
+  content_id: string;
+}
+
+export interface MarkContentAsCompletedResponse {
+  message: string;
+  progress: ContentProgressBasic;
+  module_auto_completed: boolean;
+}
+
+export interface GetModuleResumeDataRequest {
+  module_id: string;
+}
+
+export interface GetModuleResumeDataResponse {
+  next_incomplete_content_id?: string;
+  completed_content_count: number;
+  total_content_count: number;
+  completion_percentage: number;
 }
 
 // ============================================================================
@@ -169,9 +219,10 @@ export interface GetModuleContentForStudentRequest {
 
 export interface GetModuleContentForStudentResponse {
   module: ModuleWithProgress;
-  content: ContentBlockForStudent[];
+  content: ContentBlockWithProgress[];
   quiz?: QuizForStudent;
   questions?: QuestionForQuizAttempt[];
+  resume_content_id?: string;
 }
 
 export interface MarkModuleAsStartedRequest {
@@ -293,7 +344,7 @@ export interface GetCourseProgressRequest {
 }
 
 export interface GetCourseProgressResponse {
-  course: CourseBasicForProgress;
+  course: CourseBasic;
   enrollment: EnrollmentBasicForProgress;
   modules_progress: ModuleWithProgress[];
   completion_percentage: number;
