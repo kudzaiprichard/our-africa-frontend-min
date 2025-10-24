@@ -1,4 +1,4 @@
-import {environment} from '../../../environments/environment';
+import {environment} from '../../../../environments/environment';
 
 /**
  * API endpoints that match backend controller mappings
@@ -39,36 +39,101 @@ export const API_ENDPOINTS = {
   STUDENT: {
     BASE: '/api/student',
 
-    // Course Browsing & Discovery endpoints
+    // =============================================================================
+    // COURSE BROWSING & DISCOVERY
+    // =============================================================================
+
+    // GET /api/student/courses
     COURSES: '/api/student/courses',
+
+    // GET /api/student/courses/available
     COURSES_AVAILABLE: '/api/student/courses/available',
+
+    // GET /api/student/courses/<course_id>
     COURSE_DETAILS: (courseId: string) => `/api/student/courses/${courseId}`,
+
+    // GET /api/student/courses/<course_id>/modules
     COURSE_MODULES: (courseId: string) => `/api/student/courses/${courseId}/modules`,
+
+    // GET /api/student/courses/<course_id>/eligibility
     COURSE_ELIGIBILITY: (courseId: string) => `/api/student/courses/${courseId}/eligibility`,
 
-    // Enrollment Management endpoints
+    // =============================================================================
+    // ENROLLMENT MANAGEMENT
+    // =============================================================================
+
+    // GET /api/student/enrollments
     ENROLLMENTS: '/api/student/enrollments',
+
+    // POST /api/student/enrollments/<course_id>
     ENROLL: (courseId: string) => `/api/student/enrollments/${courseId}`,
+
+    // DELETE /api/student/enrollments/<course_id>
     UNENROLL: (courseId: string) => `/api/student/enrollments/${courseId}`,
+
+    // GET /api/student/enrollments/<course_id>/details
     ENROLLMENT_DETAILS: (courseId: string) => `/api/student/enrollments/${courseId}/details`,
 
-    // Learning & Module Content Access endpoints
+    // =============================================================================
+    // LEARNING & MODULE CONTENT ACCESS
+    // =============================================================================
+
+    // GET /api/student/modules/<module_id>/content
     MODULE_CONTENT: (moduleId: string) => `/api/student/modules/${moduleId}/content`,
+
+    // POST /api/student/modules/<module_id>/start
     MODULE_START: (moduleId: string) => `/api/student/modules/${moduleId}/start`,
+
+    // POST /api/student/modules/<module_id>/complete
     MODULE_COMPLETE: (moduleId: string) => `/api/student/modules/${moduleId}/complete`,
 
-    // Quiz & Exam Management endpoints
+    // =============================================================================
+    // QUIZ & EXAM MANAGEMENT
+    // =============================================================================
+
+    // GET /api/student/quizzes/<quiz_id>/questions (for offline download)
+    QUIZ_QUESTIONS: (quizId: string) => `/api/student/quizzes/${quizId}/questions`,
+
+    // GET /api/student/quizzes/<quiz_id>/attempts
     QUIZ_ATTEMPTS: (quizId: string) => `/api/student/quizzes/${quizId}/attempts`,
-    QUIZ_QUESTIONS: (quizId: string) => `/api/student/quizzes/${quizId}/questions`, // ✅ NEW: Get questions for offline
+
+    // POST /api/student/quizzes/<quiz_id>/start
     QUIZ_START: (quizId: string) => `/api/student/quizzes/${quizId}/start`,
-    QUIZ_ANSWER: (attemptId: string) => `/api/student/attempts/${attemptId}/answer`,
-    QUIZ_COMPLETE: (attemptId: string) => `/api/student/attempts/${attemptId}/complete`,
-    QUIZ_RESULTS: (attemptId: string) => `/api/student/attempts/${attemptId}/results`,
+
+    // GET /api/student/attempts/<attempt_id>/questions (for resuming)
     ATTEMPT_QUESTIONS: (attemptId: string) => `/api/student/attempts/${attemptId}/questions`,
 
-    // Progress Tracking & Dashboard endpoints
+    // POST /api/student/attempts/<attempt_id>/answer
+    QUIZ_ANSWER: (attemptId: string) => `/api/student/attempts/${attemptId}/answer`,
+
+    // POST /api/student/attempts/<attempt_id>/complete
+    QUIZ_COMPLETE: (attemptId: string) => `/api/student/attempts/${attemptId}/complete`,
+
+    // GET /api/student/attempts/<attempt_id>/results
+    QUIZ_RESULTS: (attemptId: string) => `/api/student/attempts/${attemptId}/results`,
+
+    // =============================================================================
+    // PROGRESS TRACKING & DASHBOARD
+    // =============================================================================
+
+    // GET /api/student/dashboard
     DASHBOARD: '/api/student/dashboard',
-    COURSE_PROGRESS: (courseId: string) => `/api/student/courses/${courseId}/progress`
+
+    // GET /api/student/courses/<course_id>/progress
+    COURSE_PROGRESS: (courseId: string) => `/api/student/courses/${courseId}/progress`,
+
+    // =============================================================================
+    // CONTENT PROGRESS TRACKING (NEW SECTION)
+    // =============================================================================
+
+    // POST /api/student/content/<content_id>/view
+    CONTENT_VIEW: (contentId: string) => `/api/student/content/${contentId}/view`,
+
+    // POST /api/student/content/<content_id>/complete
+    CONTENT_COMPLETE: (contentId: string) => `/api/student/content/${contentId}/complete`,
+
+    // GET /api/student/modules/<module_id>/resume
+    MODULE_RESUME: (moduleId: string) => `/api/student/modules/${moduleId}/resume`
   }
 
 } as const;
