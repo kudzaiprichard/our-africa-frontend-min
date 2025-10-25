@@ -1,0 +1,242 @@
+<!-- Loading State -->
+<div *ngIf="isLoading" class="loading-container">
+  <div class="spinner"></div>
+  <p>Loading certificate details...</p>
+</div>
+
+<!-- Error State -->
+<div *ngIf="error && !isLoading" class="error-container">
+  <div class="error-icon">
+    <i class="fas fa-exclamation-triangle"></i>
+  </div>
+  <h3>Certificate Not Found</h3>
+  <p>{{ error }}</p>
+  <button (click)="goBack()" class="btn-back">
+    <i class="fas fa-arrow-left"></i>
+    Back to Certificates
+  </button>
+</div>
+
+<!-- Certificate Detail Content -->
+<div *ngIf="!isLoading && !error && certificate" class="certificate-detail">
+
+  <!-- Header with Back Button -->
+  <div class="detail-header">
+    <button class="btn-back-nav" (click)="goBack()">
+      <i class="fas fa-arrow-left"></i>
+      <span>Back to Certificates</span>
+    </button>
+
+    <div class="header-actions">
+      <button class="btn-action" (click)="downloadBoth()" title="Download Both">
+        <i class="fas fa-download"></i>
+        <span>Download All</span>
+      </button>
+      <button class="btn-action" (click)="shareCertificate()" title="Share Certificate">
+        <i class="fas fa-share-alt"></i>
+        <span>Share</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Certificate Preview Card -->
+  <div class="certificate-preview">
+    <div class="preview-header">
+      <div class="preview-icon">
+        <i class="fas" [class.fa-certificate]="activeTab === 'certificate'"
+           [class.fa-file-alt]="activeTab === 'transcript'"></i>
+      </div>
+      <div class="preview-title">
+        <h1>{{ getCertificateTypeLabel() }}</h1>
+        <p>{{ courseTitle }}</p>
+      </div>
+      <div class="status-badge" [ngClass]="getStatusBadge().class">
+        <i class="fas fa-check-circle" *ngIf="!certificate.is_revoked"></i>
+        <i class="fas fa-times-circle" *ngIf="certificate.is_revoked"></i>
+        <span>{{ getStatusBadge().text }}</span>
+      </div>
+    </div>
+
+    <!-- Tab Switcher -->
+    <div class="tab-switcher">
+      <button
+        class="tab-btn"
+        [class.active]="activeTab === 'certificate'"
+        (click)="switchTab('certificate')">
+        <i class="fas fa-certificate"></i>
+        <span>Certificate</span>
+      </button>
+      <button
+        class="tab-btn"
+        [class.active]="activeTab === 'transcript'"
+        [class.disabled]="!transcript"
+        (click)="switchTab('transcript')">
+        <i class="fas fa-file-alt"></i>
+        <span>Transcript</span>
+      </button>
+    </div>
+
+    <!-- Certificate Visual Preview -->
+    <div class="visual-preview">
+      <div class="preview-bg">
+        <div class="preview-content">
+          <div class="award-icon">
+            <i class="fas fa-award"></i>
+          </div>
+          <h2>{{ getCertificateTypeLabel() }}</h2>
+          <div class="recipient-name">{{ studentName }}</div>
+          <div class="course-name">{{ courseTitle }}</div>
+          <div class="completion-info">
+            <span>Completed on {{ completionDate }}</span>
+          </div>
+          <div class="certificate-number-display">
+            {{ getActiveDocument()?.certificate_number }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Certificate Information Grid -->
+  <div class="info-grid">
+
+    <!-- Basic Information Card -->
+    <div class="info-card">
+      <div class="info-card-header">
+        <i class="fas fa-info-circle"></i>
+        <h3>Basic Information</h3>
+      </div>
+      <div class="info-card-content">
+        <div class="info-row">
+          <span class="info-label">Student Name:</span>
+          <span class="info-value">{{ studentName }}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Course Title:</span>
+          <span class="info-value">{{ courseTitle }}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Issue Date:</span>
+          <span class="info-value">{{ issueDate }}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Completion Date:</span>
+          <span class="info-value">{{ completionDate }}</span>
+        </div>
+        <div class="info-row" *ngIf="grade !== 'N/A'">
+          <span class="info-label">Final Grade:</span>
+          <span class="info-value grade" [style.color]="getGradeColor()">{{ grade }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Certificate Details Card -->
+    <div class="info-card">
+      <div class="info-card-header">
+        <i class="fas fa-certificate"></i>
+        <h3>Certificate Details</h3>
+      </div>
+      <div class="info-card-content">
+        <div class="info-row">
+          <span class="info-label">Certificate Number:</span>
+          <div class="info-value-with-action">
+            <span class="info-value monospace">{{ getActiveDocument()?.certificate_number }}</span>
+            <button
+              class="btn-copy"
+              (click)="copyToClipboard(getActiveDocument()?.certificate_number || '', 'Certificate number')"
+              title="Copy to clipboard">
+              <i class="fas fa-copy"></i>
+            </button>
+          </div>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Certificate Type:</span>
+          <span class="info-value">{{ getActiveDocument()?.certificate_type }}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Issued:</span>
+          <span class="info-value">{{ formatDate(getActiveDocument()?.issued_date || '') }}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Status:</span>
+          <span class="info-value" [ngClass]="getStatusBadge().class">
+            {{ getStatusBadge().text }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Verification Card -->
+    <div class="info-card verification-card">
+      <div class="info-card-header">
+        <i class="fas fa-shield-alt"></i>
+        <h3>Verification</h3>
+      </div>
+      <div class="info-card-content">
+        <div class="info-row">
+          <span class="info-label">Verification Token:</span>
+          <div class="info-value-with-action">
+            <span class="info-value monospace truncate">{{ getActiveDocument()?.verification_token }}</span>
+            <button
+              class="btn-copy"
+              (click)="copyToClipboard(getActiveDocument()?.verification_token || '', 'Verification token')"
+              title="Copy to clipboard">
+              <i class="fas fa-copy"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- QR Code Section -->
+        <div class="qr-section" *ngIf="getActiveDocument()?.qr_code_url">
+          <button class="btn-toggle-qr" (click)="toggleQRCode()">
+            <i class="fas" [class.fa-qrcode]="!showQRCode" [class.fa-times]="showQRCode"></i>
+            <span>{{ showQRCode ? 'Hide' : 'Show' }} QR Code</span>
+          </button>
+
+          <div class="qr-code-container" *ngIf="showQRCode">
+            <img [src]="getActiveDocument()?.qr_code_url" alt="QR Code" class="qr-code-image">
+            <p class="qr-code-help">Scan to verify certificate</p>
+          </div>
+        </div>
+
+        <button class="btn-verify" (click)="verifyCertificate()">
+          <i class="fas fa-check-circle"></i>
+          Verify Certificate Online
+        </button>
+      </div>
+    </div>
+
+    <!-- Module Performance Card (if available) -->
+    <div class="info-card full-width" *ngIf="modules.length > 0">
+      <div class="info-card-header">
+        <i class="fas fa-chart-line"></i>
+        <h3>Course Performance</h3>
+      </div>
+      <div class="info-card-content">
+        <div class="modules-list">
+          <div class="module-item" *ngFor="let module of modules">
+            <div class="module-name">{{ module.name || module.title }}</div>
+            <div class="module-score">{{ module.score || module.grade }}%</div>
+            <div class="module-progress">
+              <div class="progress-bar" [style.width.%]="module.score || module.grade"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="action-buttons">
+    <button class="btn-primary" (click)="activeTab === 'certificate' ? downloadCertificate() : downloadTranscript()">
+      <i class="fas fa-download"></i>
+      Download {{ activeTab === 'certificate' ? 'Certificate' : 'Transcript' }}
+    </button>
+    <button class="btn-secondary" (click)="goBack()">
+      <i class="fas fa-arrow-left"></i>
+      Back to List
+    </button>
+  </div>
+
+</div>

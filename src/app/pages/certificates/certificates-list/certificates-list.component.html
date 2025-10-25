@@ -1,0 +1,210 @@
+<!-- Loading State -->
+<div *ngIf="isLoading" class="loading-container">
+  <div class="spinner"></div>
+  <p>Loading your certificates...</p>
+</div>
+
+<!-- Error State -->
+<div *ngIf="error && !isLoading" class="error-container">
+  <div class="error-icon">
+    <i class="fas fa-exclamation-triangle"></i>
+  </div>
+  <p>{{ error }}</p>
+  <button (click)="loadCertificates()" class="btn-retry">
+    <i class="fas fa-redo"></i>
+    Retry
+  </button>
+</div>
+
+<!-- Certificates Content -->
+<div *ngIf="!isLoading && !error">
+  <!-- Header -->
+  <div class="certificates-header">
+    <h1 class="certificates-title">My Certificates 🎓</h1>
+    <p class="certificates-subtitle">View, download, and manage your earned certificates and transcripts</p>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon certificate">
+        <i class="fas fa-certificate"></i>
+      </div>
+      <div class="stat-content">
+        <div class="stat-value">{{ totalCertificates }}</div>
+        <div class="stat-label">Certificates</div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon transcript">
+        <i class="fas fa-file-alt"></i>
+      </div>
+      <div class="stat-content">
+        <div class="stat-value">{{ totalTranscripts }}</div>
+        <div class="stat-label">Transcripts</div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon courses">
+        <i class="fas fa-graduation-cap"></i>
+      </div>
+      <div class="stat-content">
+        <div class="stat-value">{{ totalCourses }}</div>
+        <div class="stat-label">Courses Completed</div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon recent">
+        <i class="fas fa-star"></i>
+      </div>
+      <div class="stat-content">
+        <div class="stat-value">{{ recentAchievements }}</div>
+        <div class="stat-label">Recent (30 days)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search and Filters -->
+  <div class="filter-search-section">
+    <div class="search-bar-container">
+      <i class="fas fa-search search-icon"></i>
+      <input
+        type="text"
+        class="search-bar"
+        placeholder="Search by course name or certificate number..."
+        [(ngModel)]="searchQuery"
+        (input)="onSearch()">
+    </div>
+
+    <div class="filters-controls">
+      <div class="filter-group">
+        <label class="filter-label">Date Range:</label>
+        <select class="filter-select" [(ngModel)]="selectedDateRange" (change)="applyFilters()">
+          <option *ngFor="let range of dateRangeOptions" [value]="range">{{ range }}</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label class="filter-label">Sort By:</label>
+        <select class="filter-select" [(ngModel)]="sortBy" (change)="onSortChange()">
+          <option *ngFor="let option of sortOptions" [value]="option">{{ option }}</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results Header -->
+  <div class="results-header">
+    <div class="results-count">
+      Showing {{ displayedPairs.length }} of {{ filteredPairs.length }} certificate pairs
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="displayedPairs.length === 0 && !isLoading" class="empty-state">
+    <i class="fas fa-certificate"></i>
+    <h3>No certificates found</h3>
+    <p *ngIf="searchQuery || selectedDateRange !== 'All Time'">
+      Try adjusting your search or filters to find what you're looking for.
+    </p>
+    <p *ngIf="!searchQuery && selectedDateRange === 'All Time'">
+      Complete courses to earn certificates and transcripts.
+    </p>
+  </div>
+
+  <!-- Certificates Grid -->
+  <div class="certificates-grid" *ngIf="displayedPairs.length > 0">
+    <div
+      *ngFor="let pair of displayedPairs; let i = index"
+      class="certificate-card"
+      (click)="viewCertificateDetail(pair.certificate.id)">
+
+      <!-- Card Header with Gradient -->
+      <div class="card-header" [style.background]="getCertificateGradient(i)">
+        <div class="header-icon">
+          <i class="fas fa-award"></i>
+        </div>
+        <div class="achievement-badge">
+          <i class="fas fa-check-circle"></i>
+          <span>Completed</span>
+        </div>
+      </div>
+
+      <!-- Card Content -->
+      <div class="card-content">
+        <h3 class="course-name">{{ pair.courseName }}</h3>
+
+        <div class="issue-date">
+          <i class="fas fa-calendar-alt"></i>
+          <span>Issued on {{ formatDate(pair.issueDate) }}</span>
+        </div>
+
+        <!-- Certificate & Transcript Info -->
+        <div class="documents-info">
+          <div class="document-item">
+            <div class="document-icon certificate-icon">
+              <i class="fas fa-certificate"></i>
+            </div>
+            <div class="document-details">
+              <div class="document-type">Certificate</div>
+              <div class="document-number">{{ pair.certificate.certificate_number }}</div>
+            </div>
+          </div>
+
+          <div class="document-item">
+            <div class="document-icon transcript-icon">
+              <i class="fas fa-file-alt"></i>
+            </div>
+            <div class="document-details">
+              <div class="document-type">Transcript</div>
+              <div class="document-number">{{ pair.transcript.certificate_number }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="card-actions">
+          <button
+            class="btn-view"
+            (click)="viewCertificateDetail(pair.certificate.id)">
+            <i class="fas fa-eye"></i>
+            View Details
+          </button>
+
+          <button
+            class="btn-download"
+            (click)="downloadCertificate(pair.certificate.id, pair.certificate.certificate_number, $event)"
+            title="Download Certificate">
+            <i class="fas fa-download"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination" *ngIf="totalPages > 1">
+    <div
+      class="page-btn"
+      [class.disabled]="currentPage === 1"
+      (click)="previousPage()">
+      <i class="fas fa-chevron-left"></i>
+    </div>
+    <div
+      *ngFor="let page of pageNumbers"
+      class="page-btn"
+      [class.active]="currentPage === page"
+      (click)="goToPage(page)">
+      {{ page }}
+    </div>
+    <div
+      class="page-btn"
+      [class.disabled]="currentPage === totalPages"
+      (click)="nextPage()">
+      <i class="fas fa-chevron-right"></i>
+    </div>
+  </div>
+</div>
