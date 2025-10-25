@@ -1,4 +1,4 @@
-// src/app/libs/authentication/services/auth.service.ts
+// src/app/libs/authentication/services/auth.services.ts
 
 import { Injectable, EventEmitter } from '@angular/core';
 import { Observable, BehaviorSubject, throwError, of } from 'rxjs';

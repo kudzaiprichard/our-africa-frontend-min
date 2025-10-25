@@ -3,7 +3,7 @@ import { CurrentUser } from '../models/auth-state.interface';
 import {StorageService} from '../../core';
 
 /**
- * Dedicated service for managing user data persistence
+ * Dedicated services for managing user data persistence
  * Breaks circular dependency between AuthService and UserService
  */
 @Injectable({

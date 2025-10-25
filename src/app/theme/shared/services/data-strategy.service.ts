@@ -9,7 +9,7 @@ import { OfflineSyncService } from './offline-sync.service';
  * Data Strategy Service - Intelligently switches between online and offline providers
  * Handles caching, sync queue, and error recovery
  *
- * This service eliminates the need for if/else offline checks in business logic
+ * This services eliminates the need for if/else offline checks in business logic
  */
 @Injectable({
   providedIn: 'root'
