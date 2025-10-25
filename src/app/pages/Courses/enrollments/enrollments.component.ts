@@ -3,10 +3,14 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil, switchMap, of } from 'rxjs';
+
+// Updated imports
+import { StudentCourseService } from '../../../libs/course';
 import {
-  GetStudentEnrollmentsResponse,
-  StudentCourseService,
+  GetStudentEnrollmentsResponse
+} from '../../../libs/course';
+import {
   EnrollmentWithCourseAndProgress
 } from '../../../libs/course';
 
@@ -139,10 +143,8 @@ export class EnrollmentsComponent implements OnInit, OnDestroy {
   }
 
   getCategory(enrollment: EnrollmentWithCourseAndProgress): string {
-    if (enrollment.course.categories_display && enrollment.course.categories_display.length > 0) {
-      return enrollment.course.categories_display[0];
-    }
-    return 'Programming';
+    // Use the category field from CourseBasic
+    return enrollment.course.category || 'General';
   }
 
   formatDate(dateString: string | null | undefined): string {
@@ -162,9 +164,14 @@ export class EnrollmentsComponent implements OnInit, OnDestroy {
     return `${totalHours}h left`;
   }
 
+  /**
+   * ✅ UPDATED: Continue Learning with Resume Feature
+   * Now uses getModuleResumeData() to jump to exact content block
+   */
   continueLearning(enrollment: EnrollmentWithCourseAndProgress, event: Event): void {
     event.stopPropagation();
 
+    // If course is completed, just view course details
     if (this.isCompleted(enrollment)) {
       this.router.navigate(['/courses/details'], {
         queryParams: { id: enrollment.course_id }
@@ -174,43 +181,113 @@ export class EnrollmentsComponent implements OnInit, OnDestroy {
 
     this.continuingCourseId = enrollment.course_id;
 
-    if (enrollment.next_module?.id) {
-      this.router.navigate(['/courses/module/content'], {
-        queryParams: {
-          moduleId: enrollment.next_module.id,
-          courseId: enrollment.course_id
+    // Check if we have next_module from enrollment
+    const nextModuleId = enrollment.next_module?.id;
+
+    if (!nextModuleId) {
+      // No next module - fallback to first module
+      this.handleFallbackToFirstModule(enrollment);
+      return;
+    }
+
+    // ✅ NEW: Get resume data for the next module
+    this.studentCourseService.getModuleResumeData(nextModuleId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (resumeData) => {
+          console.log('✅ Resume data fetched:', resumeData);
+
+          // Navigate to module with resume content ID
+          this.navigateToModuleContent(
+            nextModuleId,
+            enrollment.course_id,
+            resumeData.next_incomplete_content_id
+          );
+
+          this.continuingCourseId = null;
+        },
+        error: (err) => {
+          console.error('❌ Error fetching resume data:', err);
+
+          // Fallback: Navigate to module without specific content
+          this.navigateToModuleContent(nextModuleId, enrollment.course_id);
+          this.continuingCourseId = null;
         }
       });
-      this.continuingCourseId = null;
+  }
+
+  /**
+   * ✅ NEW: Navigate to module content with optional resume content
+   * Handles both resume and fresh start scenarios
+   */
+  private navigateToModuleContent(
+    moduleId: string,
+    courseId: string,
+    resumeContentId?: string
+  ): void {
+    const queryParams: any = {
+      moduleId: moduleId,
+      courseId: courseId
+    };
+
+    // If we have a specific content to resume from, add it to query params
+    if (resumeContentId) {
+      queryParams.resumeContentId = resumeContentId;
+      console.log(`🎯 Resuming at content: ${resumeContentId}`);
     } else {
-      this.studentCourseService.getCourseModules(enrollment.course_id)
-        .pipe(takeUntil(this.destroy$))
-        .subscribe({
-          next: (response) => {
-            if (response.modules && response.modules.length > 0) {
-              const firstModule = response.modules[0];
-              this.router.navigate(['/courses/module/content'], {
-                queryParams: {
-                  moduleId: firstModule.id,
-                  courseId: enrollment.course_id
-                }
-              });
-            } else {
-              this.router.navigate(['/courses/details'], {
-                queryParams: { id: enrollment.course_id }
-              });
-            }
-            this.continuingCourseId = null;
-          },
-          error: (err) => {
-            console.error('Error fetching modules:', err);
+      console.log('🆕 Starting module from beginning');
+    }
+
+    this.router.navigate(['/courses/module/content'], { queryParams });
+  }
+
+  /**
+   * ✅ NEW: Fallback handler when no next_module available
+   * Fetches course modules and starts with the first one
+   */
+  private handleFallbackToFirstModule(enrollment: EnrollmentWithCourseAndProgress): void {
+    this.studentCourseService.getCourseModules(enrollment.course_id)
+      .pipe(
+        takeUntil(this.destroy$),
+        switchMap((response) => {
+          if (response.modules && response.modules.length > 0) {
+            const firstModule = response.modules[0];
+
+            // Try to get resume data for first module
+            return this.studentCourseService.getModuleResumeData(firstModule.id)
+              .pipe(
+                takeUntil(this.destroy$),
+                switchMap((resumeData) => {
+                  this.navigateToModuleContent(
+                    firstModule.id,
+                    enrollment.course_id,
+                    resumeData.next_incomplete_content_id
+                  );
+                  return of(null);
+                })
+              );
+          } else {
+            // No modules found - go to course details
             this.router.navigate(['/courses/details'], {
               queryParams: { id: enrollment.course_id }
             });
-            this.continuingCourseId = null;
+            return of(null);
           }
-        });
-    }
+        })
+      )
+      .subscribe({
+        next: () => {
+          this.continuingCourseId = null;
+        },
+        error: (err) => {
+          console.error('❌ Error in fallback module fetch:', err);
+          // Final fallback - just go to course details
+          this.router.navigate(['/courses/details'], {
+            queryParams: { id: enrollment.course_id }
+          });
+          this.continuingCourseId = null;
+        }
+      });
   }
 
   isContinueLoading(enrollment: EnrollmentWithCourseAndProgress): boolean {

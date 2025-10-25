@@ -56,11 +56,11 @@
 
       <div class="enrollment-banner" [style.background]="getBannerGradient(i)">
         <img
-          *ngIf="enrollment.course.image_url"
-          [src]="enrollment.course.image_url"
+          *ngIf="enrollment.course.image && enrollment.course.image.public_url"
+          [src]="enrollment.course.image.public_url"
           [alt]="enrollment.course.title">
         <i
-          *ngIf="!enrollment.course.image_url"
+          *ngIf="!enrollment.course.image || !enrollment.course.image.public_url"
           class="fas {{ getBannerIcon(i) }}"></i>
 
         <div

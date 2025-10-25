@@ -1,5 +1,5 @@
 <!-- Dashboard Content -->
-<div *ngIf="enrollments.length > 0 && !isLoading">
+<div *ngIf="dashboardData && dashboardData.total_courses > 0 && !isLoading">
   <!-- Dashboard Header -->
   <div class="dashboard-header">
     <h1 class="dashboard-title">Welcome back, {{ userService.getFullName() }}! 👋</h1>
@@ -117,15 +117,19 @@
   <!-- In Progress Courses -->
   <div class="courses-section" *ngIf="getInProgressEnrollments().length > 0">
     <div class="section-header">
-      <h2 class="section-title">Continue Learning</h2>
+      <h2 class="section-title">Your Active Courses</h2>
       <button class="view-all-btn" (click)="navigateToEnrollments()">View All</button>
     </div>
 
     <div class="courses-grid">
-      <div *ngFor="let enrollment of getInProgressEnrollments().slice(0, 3)" class="course-card" (click)="continueCourseLearning(enrollment)">
+      <div *ngFor="let enrollment of getInProgressEnrollments().slice(0, 3)"
+           class="course-card"
+           (click)="continueCourseLearning(enrollment)">
         <div class="course-banner">
-          <img *ngIf="enrollment.course.image_url" [src]="enrollment.course.image_url" [alt]="enrollment.course.title">
-          <i *ngIf="!enrollment.course.image_url" class="fas fa-book"></i>
+          <img *ngIf="enrollment.course.image && enrollment.course.image.public_url"
+               [src]="enrollment.course.image.public_url"
+               [alt]="enrollment.course.title">
+          <i *ngIf="!enrollment.course.image || !enrollment.course.image.public_url" class="fas fa-book"></i>
         </div>
         <div class="course-content">
           <h3 class="course-title">{{ enrollment.course.title }}</h3>
@@ -134,21 +138,32 @@
           <div class="course-progress">
             <div class="progress-header">
               <span class="progress-label">Progress</span>
-              <span class="progress-percentage">{{ getProgressPercentage(enrollment) }}%</span>
+              <span class="progress-percentage">{{ enrollment.completion_percentage }}%</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill" [style.width.%]="getProgressPercentage(enrollment)"></div>
+              <div class="progress-fill" [style.width.%]="enrollment.completion_percentage"></div>
             </div>
           </div>
 
           <div class="course-meta">
             <div class="course-meta-item">
               <i class="fas fa-book"></i>
-              <span>{{ getCompletedModules(enrollment) }}/{{ getTotalModules(enrollment) }} modules</span>
+              <span>{{ enrollment.completed_modules }}/{{ enrollment.total_modules }} modules</span>
             </div>
             <div class="course-meta-item">
               <i class="fas fa-signal"></i>
               <span>{{ enrollment.course.level }}</span>
+            </div>
+            <div class="course-meta-item" *ngIf="enrollment.course.duration">
+              <i class="fas fa-clock"></i>
+              <span>{{ enrollment.course.duration }}h</span>
+            </div>
+          </div>
+
+          <div class="course-meta">
+            <div class="course-meta-item">
+              <i class="fas fa-tag"></i>
+              <span>{{ enrollment.course.category }}</span>
             </div>
           </div>
         </div>
@@ -164,10 +179,14 @@
     </div>
 
     <div class="courses-grid">
-      <div *ngFor="let course of availableCourses.courses" class="course-card" (click)="viewCourseDetails(course.id)">
+      <div *ngFor="let course of availableCourses.courses"
+           class="course-card"
+           (click)="viewCourseDetails(course.id)">
         <div class="course-banner">
-          <img *ngIf="course.image_url" [src]="course.image_url" [alt]="course.title">
-          <i *ngIf="!course.image_url" class="fas fa-graduation-cap"></i>
+          <img *ngIf="course.image && course.image.public_url"
+               [src]="course.image.public_url"
+               [alt]="course.title">
+          <i *ngIf="!course.image || !course.image.public_url" class="fas fa-graduation-cap"></i>
         </div>
         <div class="course-content">
           <h3 class="course-title">{{ course.title }}</h3>
@@ -188,10 +207,14 @@
             </div>
           </div>
 
-          <div class="course-meta" *ngIf="course.categories_display && course.categories_display.length > 0">
+          <div class="course-meta">
             <div class="course-meta-item">
               <i class="fas fa-tag"></i>
-              <span>{{ course.categories_display[0] }}</span>
+              <span>{{ course.category }}</span>
+            </div>
+            <div class="course-meta-item" *ngIf="course.enrollment_count">
+              <i class="fas fa-users"></i>
+              <span>{{ course.enrollment_count }} enrolled</span>
             </div>
           </div>
         </div>
@@ -207,10 +230,14 @@
     </div>
 
     <div class="courses-grid">
-      <div *ngFor="let enrollment of getCompletedEnrollments().slice(0, 3)" class="course-card" (click)="viewCourseDetails(enrollment.course_id)">
+      <div *ngFor="let enrollment of getCompletedEnrollments().slice(0, 3)"
+           class="course-card"
+           (click)="viewCourseDetails(enrollment.course_id)">
         <div class="course-banner">
-          <img *ngIf="enrollment.course.image_url" [src]="enrollment.course.image_url" [alt]="enrollment.course.title">
-          <i *ngIf="!enrollment.course.image_url" class="fas fa-check-circle"></i>
+          <img *ngIf="enrollment.course.image && enrollment.course.image.public_url"
+               [src]="enrollment.course.image.public_url"
+               [alt]="enrollment.course.title">
+          <i *ngIf="!enrollment.course.image || !enrollment.course.image.public_url" class="fas fa-check-circle"></i>
         </div>
         <div class="course-content">
           <h3 class="course-title">{{ enrollment.course.title }}</h3>
@@ -228,6 +255,10 @@
               <i class="fas fa-check-circle"></i>
               <span>100% Complete</span>
             </div>
+            <div class="course-meta-item">
+              <i class="fas fa-book"></i>
+              <span>{{ enrollment.total_modules }} modules</span>
+            </div>
           </div>
         </div>
       </div>
@@ -236,9 +267,23 @@
 </div>
 
 <!-- Empty State -->
-<div *ngIf="enrollments.length === 0 && !isLoading" class="empty-dashboard">
+<div *ngIf="dashboardData && dashboardData.total_courses === 0 && !isLoading" class="empty-dashboard">
   <i class="fas fa-graduation-cap"></i>
   <h2>Start Your Learning Journey</h2>
   <p>You haven't enrolled in any courses yet. Browse our catalog to get started!</p>
   <button class="action-btn primary" (click)="navigateToCatalog()">Browse Courses</button>
+</div>
+
+<!-- Loading State -->
+<div *ngIf="isLoading" class="loading-state">
+  <i class="fas fa-spinner fa-spin"></i>
+  <p>Loading your dashboard...</p>
+</div>
+
+<!-- Error State -->
+<div *ngIf="error && !isLoading" class="error-state">
+  <i class="fas fa-exclamation-circle"></i>
+  <h2>Oops! Something went wrong</h2>
+  <p>{{ error }}</p>
+  <button class="action-btn primary" (click)="loadDashboard()">Try Again</button>
 </div>

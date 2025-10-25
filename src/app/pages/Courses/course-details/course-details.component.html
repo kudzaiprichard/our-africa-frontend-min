@@ -39,7 +39,7 @@
               <i class="fas fa-clock"></i>
             </div>
             <div class="stat-info">
-              <div class="stat-value">{{ getEstimatedDuration(course.module_count || modules.length) }}</div>
+              <div class="stat-value">{{ course.duration }}h</div>
               <div class="stat-label">Duration</div>
             </div>
           </div>
@@ -69,10 +69,10 @@
       <div class="hero-right">
         <div class="course-banner-large">
           <img
-            *ngIf="course.image_url"
-            [src]="course.image_url"
+            *ngIf="course.image && course.image.public_url"
+            [src]="course.image.public_url"
             [alt]="course.title">
-          <i *ngIf="!course.image_url" class="fas fa-graduation-cap"></i>
+          <i *ngIf="!course.image || !course.image.public_url" class="fas fa-graduation-cap"></i>
         </div>
 
         <div
@@ -261,6 +261,16 @@
             <div class="info-text">
               <div class="info-label">Difficulty Level</div>
               <div class="info-value">{{ course.level }}</div>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <div class="info-icon">
+              <i class="fas fa-tag"></i>
+            </div>
+            <div class="info-text">
+              <div class="info-label">Category</div>
+              <div class="info-value">{{ course.category }}</div>
             </div>
           </div>
 

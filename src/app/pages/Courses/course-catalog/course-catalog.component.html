@@ -128,10 +128,10 @@
           (click)="viewCourseDetails(course.id)">
           <div class="course-banner" [style.background]="getCourseGradient(i)">
             <img
-              *ngIf="course.image_url"
-              [src]="course.image_url"
+              *ngIf="course.image && course.image.public_url"
+              [src]="course.image.public_url"
               [alt]="course.title">
-            <i *ngIf="!course.image_url" class="fas {{ getCourseIcon(i) }}"></i>
+            <i *ngIf="!course.image || !course.image.public_url" class="fas {{ getCourseIcon(i) }}"></i>
             <div *ngIf="getCourseBadge(course)" class="course-badge">
               {{ getCourseBadge(course) }}
             </div>
@@ -161,6 +161,13 @@
               <div class="course-rating">
                 <i class="fas fa-star"></i>
                 <span>{{ getCourseRating(course) }}</span>
+              </div>
+            </div>
+
+            <div class="course-meta">
+              <div class="course-meta-item">
+                <i class="fas fa-users"></i>
+                <span>{{ course.enrollment_count }} enrolled</span>
               </div>
             </div>
 

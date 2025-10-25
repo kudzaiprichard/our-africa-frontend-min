@@ -4,11 +4,13 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, takeUntil, forkJoin } from 'rxjs';
+
+// Updated imports
+import { StudentCourseService } from '../../../libs/course';
 import {
-  CheckEnrollmentEligibilityResponse,
-  GetCourseModulesResponse,
-  GetCourseResponse,
-  StudentCourseService,
+  CheckEnrollmentEligibilityResponse
+} from '../../../libs/course';
+import {
   CourseFull,
   ModuleBasic,
   QuizBasic
@@ -107,6 +109,7 @@ export class CourseDetailsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (response) => {
           console.log('Enrolled successfully:', response);
+          alert('Successfully enrolled! Redirecting to your enrollments...');
           this.router.navigate(['/courses/enrollments']);
         },
         error: (err) => {
@@ -143,6 +146,8 @@ export class CourseDetailsComponent implements OnInit, OnDestroy {
   }
 
   isEnrolled(): boolean {
+    // This should check actual enrollment status
+    // For now, returning false - you may want to add enrollment check
     return false;
   }
 
@@ -152,13 +157,12 @@ export class CourseDetailsComponent implements OnInit, OnDestroy {
   }
 
   getCourseCategory(): string {
-    if (this.course?.categories_display && this.course.categories_display.length > 0) {
-      return this.course.categories_display[0];
-    }
-    return 'Programming';
+    // Use the category field from CourseFull
+    return this.course?.category || 'General';
   }
 
   getCourseRating(): string {
+    // This could be enhanced to use actual ratings if available
     return '4.8/5.0';
   }
 

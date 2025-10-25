@@ -5,7 +5,15 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
-import { GetAvailableCoursesResponse, StudentCourseService, CourseBasicForEnrollment } from '../../../libs/course';
+
+// Updated imports
+import { StudentCourseService } from '../../../libs/course/services/student-course.service';
+import {
+  GetAvailableCoursesResponse
+} from '../../../libs/course/models/enrollment.dtos.interface';
+import {
+  CourseBasic
+} from '../../../libs/course/models/course-management.dtos.interface';
 
 @Component({
   selector: 'app-course-catalog',
@@ -17,10 +25,10 @@ import { GetAvailableCoursesResponse, StudentCourseService, CourseBasicForEnroll
 export class CourseCatalogComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
-  // Data
-  allCourses: CourseBasicForEnrollment[] = [];
-  filteredCourses: CourseBasicForEnrollment[] = [];
-  displayedCourses: CourseBasicForEnrollment[] = [];
+  // Data - Updated type
+  allCourses: CourseBasic[] = [];
+  filteredCourses: CourseBasic[] = [];
+  displayedCourses: CourseBasic[] = [];
 
   // Pagination
   currentPage = 1;
@@ -97,13 +105,8 @@ export class CourseCatalogComponent implements OnInit, OnDestroy {
             const randomIndex = Math.floor(Math.random() * (badges.length + 2));
             this.badgeMap.set(course.id, randomIndex < badges.length ? badges[randomIndex] : null);
 
-            // Category - use actual categories or random
-            if (course.categories_display && course.categories_display.length > 0) {
-              this.categoryMap.set(course.id, course.categories_display[0]);
-            } else {
-              const categoryIndex = Math.floor(Math.random() * (this.categories.length - 1)) + 1;
-              this.categoryMap.set(course.id, this.categories[categoryIndex]);
-            }
+            // Category - use actual category from CourseBasic
+            this.categoryMap.set(course.id, course.category || 'General');
 
             // Rating
             const rating = parseFloat((4.5 + Math.random() * 0.4).toFixed(1));
@@ -129,7 +132,8 @@ export class CourseCatalogComponent implements OnInit, OnDestroy {
       const query = this.searchQuery.toLowerCase();
       filtered = filtered.filter(course =>
         course.title.toLowerCase().includes(query) ||
-        course.description?.toLowerCase().includes(query)
+        course.description?.toLowerCase().includes(query) ||
+        course.category?.toLowerCase().includes(query)
       );
     }
 
@@ -142,9 +146,10 @@ export class CourseCatalogComponent implements OnInit, OnDestroy {
 
     // Level filter
     if (this.selectedLevel.length > 0) {
-      filtered = filtered.filter(course =>
-        this.selectedLevel.includes(course.level.charAt(0).toUpperCase() + course.level.slice(1))
-      );
+      filtered = filtered.filter(course => {
+        const courseLevel = course.level.charAt(0).toUpperCase() + course.level.slice(1).toLowerCase();
+        return this.selectedLevel.includes(courseLevel);
+      });
     }
 
     // Duration filter
@@ -170,21 +175,24 @@ export class CourseCatalogComponent implements OnInit, OnDestroy {
     this.updateDisplayedCourses();
   }
 
-  sortCourses(courses: CourseBasicForEnrollment[]): void {
+  sortCourses(courses: CourseBasic[]): void {
     switch (this.sortBy) {
       case 'Highest Rated':
         courses.sort((a, b) => (this.ratingMap.get(b.id) || 0) - (this.ratingMap.get(a.id) || 0));
         break;
       case 'Newest First':
-        // Sort by title as fallback since created_at is not available
-        courses.sort((a, b) => a.title.localeCompare(b.title));
+        courses.sort((a, b) => {
+          const dateA = new Date(a.created_at).getTime();
+          const dateB = new Date(b.created_at).getTime();
+          return dateB - dateA;
+        });
         break;
       case 'Title: A-Z':
         courses.sort((a, b) => a.title.localeCompare(b.title));
         break;
       case 'Most Popular':
       default:
-        courses.sort((a, b) => b.module_count - a.module_count);
+        courses.sort((a, b) => b.enrollment_count - a.enrollment_count);
         break;
     }
   }
@@ -335,19 +343,19 @@ export class CourseCatalogComponent implements OnInit, OnDestroy {
     return icons[index % icons.length];
   }
 
-  getCourseBadge(course: CourseBasicForEnrollment): string | null {
+  getCourseBadge(course: CourseBasic): string | null {
     return this.badgeMap.get(course.id) || null;
   }
 
-  getCourseCategory(course: CourseBasicForEnrollment): string {
-    return this.categoryMap.get(course.id) || 'Programming';
+  getCourseCategory(course: CourseBasic): string {
+    return this.categoryMap.get(course.id) || course.category || 'General';
   }
 
   getEstimatedDuration(duration: number): string {
     return `${duration}h`;
   }
 
-  getCourseRating(course: CourseBasicForEnrollment): number {
+  getCourseRating(course: CourseBasic): number {
     return this.ratingMap.get(course.id) || 4.5;
   }
 
@@ -367,7 +375,11 @@ export class CourseCatalogComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (response) => {
           console.log('Enrolled successfully:', response);
-          this.loadCourses();
+          alert('Successfully enrolled in course!');
+          // Optionally navigate to course details or enrollments
+          this.router.navigate(['/courses/details'], {
+            queryParams: { id: courseId }
+          });
         },
         error: (err) => {
           console.error('Enrollment failed:', err);

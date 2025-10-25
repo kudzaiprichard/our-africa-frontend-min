@@ -1,11 +1,13 @@
 // src/app/pages/assessments/quiz-results/quiz-results.component.ts
 
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import {CommonModule, NgOptimizedImage} from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
+
+// Updated imports
+import { StudentCourseService } from '../../../libs/course';
 import {
-  StudentCourseService,
   GetQuizResultsResponse,
   QuestionWithAnswerResult
 } from '../../../libs/course';

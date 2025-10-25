@@ -4,13 +4,16 @@ import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, takeUntil, interval } from 'rxjs';
+
+// Updated imports
+import { StudentCourseService } from '../../../libs/course';
 import {
-  StudentCourseService,
   StartQuizAttemptResponse,
   GetAttemptQuestionsResponse,
   QuestionForQuizAttempt,
   QuizAttemptBasic,
-  GetQuizAttemptsResponse
+  GetQuizAttemptsResponse,
+  SubmitQuizAnswerRequest
 } from '../../../libs/course';
 
 @Component({
@@ -23,8 +26,8 @@ import {
 export class QuizAttemptComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private timerSubscription?: any;
-  private isAutoCancelling = false;
-  private hasShownWarning = false;
+  private isNavigating = false;
+  private hasAbandonedQuiz = false;
 
   quizId: string = '';
   moduleId: string = '';
@@ -55,8 +58,8 @@ export class QuizAttemptComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.setupBeforeUnloadListener();
-    this.setupRouteGuard();
+    // Setup page leave detection
+    this.setupPageLeaveDetection();
 
     this.route.queryParams
       .pipe(takeUntil(this.destroy$))
@@ -75,115 +78,108 @@ export class QuizAttemptComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.cleanupEventListeners();
-    if (this.timerSubscription) {
-      this.timerSubscription.unsubscribe();
-    }
-    this.destroy$.next();
-    this.destroy$.complete();
+    this.cleanup();
+  }
+
+  // ========== PAGE LEAVE DETECTION ==========
+
+  private setupPageLeaveDetection(): void {
+    // Detect browser/tab close
+    window.addEventListener('beforeunload', this.handleBeforeUnload.bind(this));
+
+    // Detect back button / navigation
+    window.addEventListener('popstate', this.handlePopState.bind(this));
   }
 
   @HostListener('window:beforeunload', ['$event'])
-  onBeforeUnload(event: BeforeUnloadEvent): void {
-    if (this.attempt && !this.isAutoCancelling && !this.isSubmitting) {
-      this.showWarningOnUnload(event);
+  private handleBeforeUnload(event: BeforeUnloadEvent): void {
+    if (this.attempt && !this.hasAbandonedQuiz && !this.isNavigating) {
+      // Show browser warning
+      event.preventDefault();
+      event.returnValue = '';
+
+      // Try to abandon quiz (may not complete due to browser restrictions)
+      this.abandonQuizSync();
     }
   }
 
-  @HostListener('window:pagehide', ['$event'])
-  onPageHide(event: PageTransitionEvent): void {
-    if (this.attempt && !this.isAutoCancelling && !this.isSubmitting) {
-      this.handlePageLeave();
-    }
-  }
+  private handlePopState(event: PopStateEvent): void {
+    if (this.attempt && !this.hasAbandonedQuiz && !this.isNavigating) {
+      event.preventDefault();
 
-  @HostListener('window:visibilitychange', ['$event'])
-  onVisibilityChange(event: Event): void {
-    if (document.hidden && this.attempt && !this.isAutoCancelling && !this.isSubmitting) {
-      this.handlePageLeave();
-    }
-  }
+      const shouldLeave = confirm(
+        'Are you sure you want to leave? Your quiz attempt will be abandoned and you can continue later.'
+      );
 
-  private setupBeforeUnloadListener(): void {
-    window.addEventListener('beforeunload', (event) => {
-      if (this.attempt && !this.isAutoCancelling && !this.isSubmitting) {
-        this.showWarningOnUnload(event);
+      if (shouldLeave) {
+        this.abandonQuizAndNavigate();
+      } else {
+        // Push state back to keep user on quiz page
+        history.pushState(null, '', location.href);
       }
-    });
+    }
   }
 
-  private setupRouteGuard(): void {
-    // Override router navigation to catch route changes
-    const originalNavigate = this.router.navigate.bind(this.router);
-    this.router.navigate = (commands: any[], navigationExtras?: any) => {
-      if (this.attempt && !this.isAutoCancelling && !this.isSubmitting && !this.hasShownWarning) {
-        const shouldNavigate = this.confirmNavigation();
-        if (!shouldNavigate) {
-          return Promise.resolve(false);
+  private abandonQuizSync(): void {
+    if (!this.attempt) return;
+
+    // Use synchronous beacon API for reliable delivery even if page is closing
+    const url = `/api/student/attempts/${this.attempt.id}/abandon`;
+    const data = JSON.stringify({ attempt_id: this.attempt.id });
+
+    navigator.sendBeacon(url, new Blob([data], { type: 'application/json' }));
+    this.hasAbandonedQuiz = true;
+  }
+
+  private abandonQuizAndNavigate(): void {
+    if (!this.attempt || this.hasAbandonedQuiz) {
+      this.navigateBack();
+      return;
+    }
+
+    this.hasAbandonedQuiz = true;
+
+    this.studentCourseService.abandonQuiz(this.attempt.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          console.log('Quiz abandoned successfully');
+          this.navigateBack();
+        },
+        error: (err) => {
+          console.error('Failed to abandon quiz:', err);
+          // Navigate anyway - backend will handle cleanup
+          this.navigateBack();
         }
-      }
-      return originalNavigate(commands, navigationExtras);
-    };
+      });
   }
 
-  private cleanupEventListeners(): void {
-    window.removeEventListener('beforeunload', this.onBeforeUnload);
-    window.removeEventListener('pagehide', this.onPageHide);
-    window.removeEventListener('visibilitychange', this.onVisibilityChange);
-  }
+  private navigateBack(): void {
+    this.isNavigating = true;
+    this.cleanup();
 
-  private showWarningOnUnload(event: BeforeUnloadEvent): void {
-    const warningMessage = 'Leaving this page will cancel your quiz attempt. Your progress will be saved but the attempt will be marked as abandoned. Are you sure you want to leave?';
-    event.preventDefault();
-    event.returnValue = warningMessage;
-  }
-
-  private handlePageLeave(): void {
-    if (this.hasShownWarning) return;
-
-    this.hasShownWarning = true;
-    const shouldCancel = confirm('WARNING: Leaving this page will cancel your quiz attempt. Click "OK" to cancel the quiz, or "Cancel" to stay on the page.');
-
-    if (shouldCancel) {
-      this.isAutoCancelling = true;
-      this.cancelQuizAutomatically();
-    } else {
-      // User chose to stay on page
-      this.hasShownWarning = false;
-    }
-  }
-
-  private confirmNavigation(): boolean {
-    if (this.hasShownWarning) return true;
-
-    this.hasShownWarning = true;
-    const shouldNavigate = confirm('WARNING: Navigating away will cancel your quiz attempt. Click "OK" to cancel the quiz and leave, or "Cancel" to stay on the quiz page.');
-
-    if (!shouldNavigate) {
-      this.hasShownWarning = false;
-    }
-
-    return shouldNavigate;
-  }
-
-  private cancelQuizAutomatically(): void {
-    console.log('Quiz automatically cancelled due to page navigation');
-
-    // Stop the timer
-    if (this.timerSubscription) {
-      this.timerSubscription.unsubscribe();
-    }
-
-    // Navigate back to module content
     this.router.navigate(['/courses/module/content'], {
       queryParams: { moduleId: this.moduleId, courseId: this.courseId }
     });
   }
 
+  private cleanup(): void {
+    if (this.timerSubscription) {
+      this.timerSubscription.unsubscribe();
+    }
+
+    window.removeEventListener('beforeunload', this.handleBeforeUnload);
+    window.removeEventListener('popstate', this.handlePopState);
+
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  // ========== QUIZ ATTEMPT LIFECYCLE ==========
+
   startQuizAttempt(): void {
     this.isLoading = true;
     this.error = null;
-    this.hasShownWarning = false;
 
     this.studentCourseService.getModuleContent(this.moduleId)
       .pipe(takeUntil(this.destroy$))
@@ -290,7 +286,8 @@ export class QuizAttemptComponent implements OnInit, OnDestroy {
               this.timeRemaining = remainingMinutes * 60;
               this.startTimer();
             } else {
-              this.submitQuiz();
+              // Time already expired - auto-submit
+              this.autoSubmitOnTimeout();
               return;
             }
           }
@@ -334,18 +331,57 @@ export class QuizAttemptComponent implements OnInit, OnDestroy {
       });
   }
 
+  // ========== TIMER MANAGEMENT ==========
+
   startTimer(): void {
     this.timerSubscription = interval(1000)
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
         if (this.timeRemaining > 0) {
           this.timeRemaining--;
+
+          // ✅ Auto-submit when time runs out
           if (this.timeRemaining === 0) {
-            this.submitQuiz();
+            this.autoSubmitOnTimeout();
           }
         }
       });
   }
+
+  private autoSubmitOnTimeout(): void {
+    if (!this.attempt || this.isSubmitting) return;
+
+    alert('Time is up! Your quiz will be submitted automatically with the answers you provided.');
+
+    this.isSubmitting = true;
+    this.isNavigating = true;
+
+    // ✅ Force submit even with unanswered questions
+    this.studentCourseService.completeQuizForced(this.attempt.id, true)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.cleanup();
+
+          this.router.navigate(['/assessments/quiz/results'], {
+            queryParams: {
+              attemptId: this.attempt!.id,
+              quizId: this.quizId,
+              moduleId: this.moduleId,
+              courseId: this.courseId
+            }
+          });
+        },
+        error: (err) => {
+          console.error('Error auto-submitting quiz:', err);
+          alert('Failed to submit quiz. Please try again manually.');
+          this.isSubmitting = false;
+          this.isNavigating = false;
+        }
+      });
+  }
+
+  // ========== QUIZ INTERACTION ==========
 
   get quizAttempt() {
     if (!this.attempt) return null;
@@ -387,7 +423,7 @@ export class QuizAttemptComponent implements OnInit, OnDestroy {
 
   get isTimeWarning(): boolean {
     if (!this.timeLimit) return false;
-    return this.timeRemaining <= 300;
+    return this.timeRemaining <= 300; // Last 5 minutes
   }
 
   get canGoPrevious(): boolean {
@@ -423,7 +459,8 @@ export class QuizAttemptComponent implements OnInit, OnDestroy {
 
     this.answers.set(questionId, optionId);
 
-    const answerRequest = {
+    // Create the request using the DTO structure
+    const answerRequest: SubmitQuizAnswerRequest = {
       attempt_id: this.attempt.id,
       question_id: questionId,
       selected_option_id: optionId
@@ -432,8 +469,12 @@ export class QuizAttemptComponent implements OnInit, OnDestroy {
     this.studentCourseService.submitQuizAnswer(this.attempt.id, answerRequest)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: () => {},
-        error: () => {
+        next: () => {
+          console.log('Answer submitted successfully');
+        },
+        error: (err) => {
+          console.error('Error submitting answer:', err);
+          // Revert the answer on error
           if (previousAnswer) {
             this.answers.set(questionId, previousAnswer);
           } else {
@@ -461,6 +502,8 @@ export class QuizAttemptComponent implements OnInit, OnDestroy {
     }
   }
 
+  // ========== QUIZ SUBMISSION ==========
+
   submitQuiz(): void {
     if (this.isSubmitting || !this.attempt) return;
 
@@ -473,14 +516,13 @@ export class QuizAttemptComponent implements OnInit, OnDestroy {
     }
 
     this.isSubmitting = true;
+    this.isNavigating = true;
 
     this.studentCourseService.completeQuiz(this.attempt.id)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {
-          if (this.timerSubscription) {
-            this.timerSubscription.unsubscribe();
-          }
+          this.cleanup();
 
           this.router.navigate(['/assessments/quiz/results'], {
             queryParams: {
@@ -491,24 +533,23 @@ export class QuizAttemptComponent implements OnInit, OnDestroy {
             }
           });
         },
-        error: () => {
+        error: (err) => {
+          console.error('Error submitting quiz:', err);
           alert('Failed to submit quiz. Please try again.');
           this.isSubmitting = false;
+          this.isNavigating = false;
         }
       });
   }
 
   cancelQuiz(): void {
-    const confirmCancel = confirm('Are you sure you want to cancel? Your progress will be saved and you can continue later.');
+    const confirmCancel = confirm(
+      'Are you sure you want to leave? Your quiz attempt will be abandoned and you can continue later.'
+    );
+
     if (!confirmCancel) return;
 
-    if (this.timerSubscription) {
-      this.timerSubscription.unsubscribe();
-    }
-
-    this.router.navigate(['/courses/module/content'], {
-      queryParams: { moduleId: this.moduleId, courseId: this.courseId }
-    });
+    this.abandonQuizAndNavigate();
   }
 
   getOptionLetter(index: number): string {

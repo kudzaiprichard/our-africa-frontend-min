@@ -295,6 +295,7 @@ export interface SubmitQuizAnswerResponse {
 
 export interface CompleteQuizAttemptRequest {
   attempt_id: string;
+  force_submit?: boolean;
 }
 
 export interface CompleteQuizAttemptResponse {
@@ -363,4 +364,17 @@ export interface GetStudentDashboardResponse {
   total_completed: number;
   total_in_progress: number;
   continue_learning?: EnrollmentWithCourseAndProgressSummary;
+}
+
+// ============================================================================
+// QUIZ ABANDONMENT
+// ============================================================================
+
+export interface AbandonQuizAttemptRequest {
+  attempt_id: string;
+}
+
+export interface AbandonQuizAttemptResponse {
+  message: string;
+  attempt: QuizAttemptBasic;
 }

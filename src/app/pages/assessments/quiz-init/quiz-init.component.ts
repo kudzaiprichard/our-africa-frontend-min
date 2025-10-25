@@ -4,7 +4,13 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
-import { StudentCourseService, QuizForStudent, ModuleWithProgress } from '../../../libs/course';
+
+// Updated imports
+import { StudentCourseService } from '../../../libs/course';
+import {
+  QuizForStudent,
+  ModuleWithProgress
+} from '../../../libs/course';
 
 @Component({
   selector: 'app-quiz-init',
@@ -63,6 +69,11 @@ export class QuizInitComponent implements OnInit, OnDestroy {
           this.quiz = response.quiz || null;
           this.module = response.module;
           this.isLoading = false;
+
+          // Optionally check if quiz exists
+          if (!this.quiz) {
+            this.error = 'No quiz found for this module';
+          }
         },
         error: (err) => {
           console.error('Error loading quiz data:', err);

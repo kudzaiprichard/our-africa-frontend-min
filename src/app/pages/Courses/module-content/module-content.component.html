@@ -20,18 +20,46 @@
       <div
         *ngFor="let contentItem of content; let i = index"
         class="content-list-item"
-        [class.completed]="completedContentIds.has(contentItem.id)"
+        [class.completed]="contentItem.progress?.is_completed || completedContentIds.has(contentItem.id)"
         [class.active]="isContentActive(i)"
         (click)="selectContent(i)">
         <div class="content-icon">
-          <i *ngIf="completedContentIds.has(contentItem.id)" class="fas fa-check"></i>
-          <i *ngIf="!completedContentIds.has(contentItem.id)" class="fas fa-file-alt"></i>
+          <i *ngIf="contentItem.progress?.is_completed || completedContentIds.has(contentItem.id)" class="fas fa-check"></i>
+          <i *ngIf="!contentItem.progress?.is_completed && !completedContentIds.has(contentItem.id)" class="fas fa-file-alt"></i>
         </div>
         <div class="content-item-info">
           <div class="content-item-title">
-            {{ contentItem.title || 'Content ' + (i + 1) }}
+            {{ getContentTitle(i) }}
           </div>
           <div class="content-item-type">Content Block</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quiz Item in Sidebar -->
+    <div
+      class="content-list-item quiz-item"
+      *ngIf="module?.has_quiz && quiz"
+      [class.disabled]="!canTakeQuiz"
+      [title]="quizDisabledReason || ''"
+      (click)="canTakeQuiz ? takeQuiz() : null">
+      <div class="content-icon quiz-icon">
+        <i class="fas"
+           [class.fa-question-circle]="canTakeQuiz"
+           [class.fa-clock]="!canTakeQuiz && cooldownTimeRemaining"
+           [class.fa-lock]="!canTakeQuiz && !cooldownTimeRemaining"></i>
+      </div>
+      <div class="content-item-info">
+        <div class="content-item-title">{{ quiz.title }}</div>
+        <div class="content-item-type">
+          <!-- ✅ UPDATED: Show cooldown timer -->
+          <span *ngIf="!canTakeQuiz && cooldownTimeRemaining" class="cooldown-text">
+            <i class="fas fa-clock"></i> {{ cooldownTimeRemaining }}
+          </span>
+          <span *ngIf="!canTakeQuiz && !cooldownTimeRemaining">
+            {{ quizDisabledReason }}
+          </span>
+          <span *ngIf="canTakeQuiz">Module Quiz</span>
         </div>
       </div>
     </div>
@@ -47,7 +75,7 @@
         <span>Text Content</span>
       </div>
       <h1 class="content-title">
-        {{ currentContent.title || 'Content ' + (currentContentIndex + 1) }}
+        {{ getContentTitle(currentContentIndex) }}
       </h1>
       <div class="content-meta">
         <div class="meta-item">
@@ -62,29 +90,27 @@
           <i class="fas fa-calendar"></i>
           <span>Added: {{ currentContent.created_at | date: 'MMM yyyy' }}</span>
         </div>
+        <div class="meta-item" *ngIf="currentContent.progress?.is_completed">
+          <i class="fas fa-check-circle"></i>
+          <span>Completed</span>
+        </div>
       </div>
     </div>
 
     <!-- Content Body -->
     <div class="content-body" *ngIf="currentParsedContent">
       <div class="content-text">
-        <!-- Render all content blocks as HTML -->
-        <div class="content-html" [innerHTML]="currentParsedContent.html"></div>
-
-        <!-- Empty State -->
-        <div class="content-empty" *ngIf="!currentParsedContent.html || currentParsedContent.html === ''">
-          <div class="empty-icon">
-            <i class="fas fa-inbox"></i>
-          </div>
-          <p>No content available for this block</p>
-        </div>
+        <div class="tiptap-content" [innerHTML]="currentParsedContent.html"></div>
       </div>
     </div>
 
     <!-- Quiz Prompt -->
     <div class="quiz-prompt" *ngIf="isLastContent && module?.has_quiz && quiz">
       <div class="quiz-icon-large">
-        <i class="fas fa-question-circle"></i>
+        <i class="fas"
+           [class.fa-question-circle]="canTakeQuiz"
+           [class.fa-clock]="!canTakeQuiz && cooldownTimeRemaining"
+           [class.fa-lock]="!canTakeQuiz && !cooldownTimeRemaining"></i>
       </div>
       <div class="quiz-info">
         <div class="quiz-title">{{ quiz.title }}</div>
@@ -94,25 +120,32 @@
         <div class="quiz-description" *ngIf="!quiz.description">
           Test your knowledge and complete this module by taking the quiz.
         </div>
+
+        <!-- ✅ NEW: Cooldown notice -->
+        <div class="cooldown-notice" *ngIf="!canTakeQuiz && cooldownTimeRemaining">
+          <i class="fas fa-clock"></i>
+          <span>Next attempt available in <strong>{{ cooldownTimeRemaining }}</strong></span>
+        </div>
+
         <div class="quiz-meta">
           <div class="quiz-meta-item" *ngIf="quiz.time_limit_minutes">
             <i class="fas fa-clock"></i>
             <span>{{ quiz.time_limit_minutes }} minutes</span>
           </div>
           <div class="quiz-meta-item">
-            <i class="fas fa-trophy"></i>
-            <span>Pass: {{ quiz.pass_mark_percentage }}%</span>
-          </div>
-          <div class="quiz-meta-item">
             <i class="fas fa-question-circle"></i>
             <span>{{ quiz.question_count }} questions</span>
           </div>
+          <div class="quiz-meta-item" *ngIf="quiz.student_passed">
+            <i class="fas fa-check-circle"></i>
+            <span>Passed</span>
+          </div>
+          <div class="quiz-meta-item" *ngIf="!quiz.student_can_attempt && !quiz.student_passed && !cooldownTimeRemaining">
+            <i class="fas fa-lock"></i>
+            <span>No attempts remaining</span>
+          </div>
         </div>
       </div>
-      <button class="btn-take-quiz" (click)="takeQuiz()">
-        <i class="fas fa-play"></i>
-        <span>Take Quiz</span>
-      </button>
     </div>
 
     <!-- Navigation Buttons -->
@@ -126,10 +159,10 @@
       </button>
       <button
         class="btn-nav primary"
-        [disabled]="!canGoNext"
+        [disabled]="(!canGoNext && !shouldShowStartQuiz) || (shouldShowStartQuiz && !canTakeQuiz)"
         (click)="goToNextContent()">
-        <span>{{ isLastContent && module?.has_quiz ? 'Take Quiz' : 'Next Content' }}</span>
-        <i class="fas fa-arrow-right"></i>
+        <span>{{ nextButtonText }}</span>
+        <i class="fas" [class.fa-arrow-right]="!shouldShowStartQuiz" [class.fa-play]="shouldShowStartQuiz"></i>
       </button>
     </div>
 
