@@ -40,6 +40,22 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- ============================================================================
+-- COURSE MEDIA
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS course_media (
+                                          id TEXT PRIMARY KEY,
+                                          file_id TEXT NOT NULL,
+                                          filename TEXT NOT NULL,
+                                          media_type TEXT NOT NULL CHECK(media_type IN ('video', 'audio', 'image', 'document')),
+  public_url TEXT NOT NULL,
+  size_bytes INTEGER,
+  uploaded_by TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  last_synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+
+-- ============================================================================
 -- COURSES
 -- ============================================================================
 
@@ -47,19 +63,18 @@ CREATE TABLE IF NOT EXISTS courses (
                                      id TEXT PRIMARY KEY,
                                      title TEXT NOT NULL,
                                      description TEXT,
-                                     image_url TEXT,
-                                     image_file_id TEXT,
+                                     image_id TEXT,
                                      created_by TEXT,
                                      is_published BOOLEAN DEFAULT 0,
                                      module_count INTEGER DEFAULT 0,
                                      enrollment_count INTEGER DEFAULT 0,
-                                     categories TEXT,
-                                     categories_display TEXT,
-                                     level TEXT CHECK(level IN ('beginner', 'intermediate', 'advanced')),
+                                     category TEXT,
+                                     level TEXT CHECK(level IN ('BEGINNER', 'INTERMEDIATE', 'ADVANCED')),
   duration INTEGER DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  last_synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  last_synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (image_id) REFERENCES course_media(id) ON DELETE SET NULL
   );
 
 CREATE TABLE IF NOT EXISTS course_prerequisites (
@@ -122,10 +137,6 @@ CREATE TABLE IF NOT EXISTS quizzes (
   attempt_reset_hours INTEGER DEFAULT 0,
   shuffle_questions BOOLEAN DEFAULT 0,
   question_count INTEGER DEFAULT 0,
-  student_best_score REAL,
-  student_attempts_count INTEGER DEFAULT 0,
-  student_can_attempt BOOLEAN DEFAULT 1,
-  student_passed BOOLEAN DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   last_synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -138,7 +149,6 @@ CREATE TABLE IF NOT EXISTS questions (
                                        quiz_id TEXT NOT NULL,
                                        question_text TEXT NOT NULL,
                                        image_url TEXT,
-                                       image_file_id TEXT,
                                        order_index INTEGER DEFAULT 0,
                                        points REAL DEFAULT 1.0,
                                        created_at TEXT NOT NULL,
@@ -185,12 +195,31 @@ CREATE TABLE IF NOT EXISTS module_progress (
                                              status TEXT CHECK(status IN ('not_started', 'in_progress', 'completed')),
   started_at TEXT,
   completed_at TEXT,
+  auto_completed BOOLEAN DEFAULT 0,
+  content_completion_percentage REAL DEFAULT 0,
+  completed_content_count INTEGER DEFAULT 0,
+  total_content_count INTEGER DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   last_synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (enrollment_id) REFERENCES enrollments(id) ON DELETE CASCADE,
   FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE,
   UNIQUE(enrollment_id, module_id)
+  );
+
+CREATE TABLE IF NOT EXISTS content_progress (
+                                              id TEXT PRIMARY KEY,
+                                              enrollment_id TEXT NOT NULL,
+                                              content_id TEXT NOT NULL,
+                                              is_completed BOOLEAN DEFAULT 0,
+                                              viewed_at TEXT,
+                                              completed_at TEXT,
+                                              created_at TEXT NOT NULL,
+                                              updated_at TEXT NOT NULL,
+                                              last_synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                              FOREIGN KEY (enrollment_id) REFERENCES enrollments(id) ON DELETE CASCADE,
+  FOREIGN KEY (content_id) REFERENCES content_blocks(id) ON DELETE CASCADE,
+  UNIQUE(enrollment_id, content_id)
   );
 
 CREATE TABLE IF NOT EXISTS quiz_attempts (
@@ -243,9 +272,26 @@ CREATE TABLE IF NOT EXISTS sync_queue (
   );
 
 -- ============================================================================
+-- INDEXES FOR PERFORMANCE
+-- ============================================================================
+
+CREATE INDEX IF NOT EXISTS idx_modules_course_id ON modules(course_id);
+CREATE INDEX IF NOT EXISTS idx_content_blocks_module_id ON content_blocks(module_id);
+CREATE INDEX IF NOT EXISTS idx_questions_quiz_id ON questions(quiz_id);
+CREATE INDEX IF NOT EXISTS idx_question_options_question_id ON question_options(question_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_student_id ON enrollments(student_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_course_id ON enrollments(course_id);
+CREATE INDEX IF NOT EXISTS idx_module_progress_enrollment_id ON module_progress(enrollment_id);
+CREATE INDEX IF NOT EXISTS idx_content_progress_enrollment_id ON content_progress(enrollment_id);
+CREATE INDEX IF NOT EXISTS idx_quiz_attempts_student_id ON quiz_attempts(student_id);
+CREATE INDEX IF NOT EXISTS idx_quiz_attempts_quiz_id ON quiz_attempts(quiz_id);
+CREATE INDEX IF NOT EXISTS idx_quiz_answers_attempt_id ON quiz_answers(attempt_id);
+CREATE INDEX IF NOT EXISTS idx_sync_queue_table_record ON sync_queue(table_name, record_id);
+
+-- ============================================================================
 -- INITIAL DATA
 -- ============================================================================
 
-INSERT OR IGNORE INTO app_metadata (key, value) VALUES ('schema_version', '1');
+INSERT OR IGNORE INTO app_metadata (key, value) VALUES ('schema_version', '2');
 INSERT OR IGNORE INTO app_metadata (key, value) VALUES ('last_full_sync', '');
 INSERT OR IGNORE INTO app_metadata (key, value) VALUES ('is_offline_mode', 'false');
