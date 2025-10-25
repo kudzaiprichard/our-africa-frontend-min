@@ -3,16 +3,6 @@
 <!-- Active Nav Glow -->
 <div class="nav-glow" [class.hidden]="isFocusMode"></div>
 
-<!-- Navigation History (Top-Left) -->
-<app-nav-history
-  *ngIf="!isFocusMode"
-  [canGoBack]="canGoBack"
-  [canGoForward]="canGoForward"
-  [currentPage]="currentPageInfo"
-  (back)="onBack()"
-  (forward)="onForward()">
-</app-nav-history>
-
 <!-- User Profile (Top-Center) -->
 <app-user-profile *ngIf="!isFocusMode"></app-user-profile>
 

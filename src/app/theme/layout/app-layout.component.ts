@@ -5,7 +5,6 @@ import { CommonModule } from '@angular/common';
 import { RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs/operators';
 
-import { NavHistoryComponent } from './components/nav-history/nav-history.component';
 import { UserProfileComponent } from './components/user-profile/user-profile.component';
 import { FloatingNavComponent } from './components/floating-nav/floating-nav.component';
 import { ScrollIndicatorComponent } from './components/scroll-indicator/scroll-indicator.component';
@@ -17,7 +16,6 @@ import { NavigationItem, PageInfo, NavigationService } from './models/navigation
   imports: [
     CommonModule,
     RouterOutlet,
-    NavHistoryComponent,
     UserProfileComponent,
     FloatingNavComponent,
     ScrollIndicatorComponent
