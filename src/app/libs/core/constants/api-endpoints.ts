@@ -125,7 +125,7 @@ export const API_ENDPOINTS = {
     COURSE_PROGRESS: (courseId: string) => `/api/student/courses/${courseId}/progress`,
 
     // =============================================================================
-    // CONTENT PROGRESS TRACKING (NEW SECTION)
+    // CONTENT PROGRESS TRACKING
     // =============================================================================
 
     // POST /api/student/content/<content_id>/view
@@ -135,7 +135,26 @@ export const API_ENDPOINTS = {
     CONTENT_COMPLETE: (contentId: string) => `/api/student/content/${contentId}/complete`,
 
     // GET /api/student/modules/<module_id>/resume
-    MODULE_RESUME: (moduleId: string) => `/api/student/modules/${moduleId}/resume`
+    MODULE_RESUME: (moduleId: string) => `/api/student/modules/${moduleId}/resume`,
+
+    // =============================================================================
+    // CERTIFICATE MANAGEMENT
+    // =============================================================================
+
+    // GET /api/student/certificates
+    CERTIFICATES: '/api/student/certificates',
+
+    // GET /api/student/certificates/<certificate_id>
+    CERTIFICATE_DETAILS: (certificateId: string) => `/api/student/certificates/${certificateId}`,
+
+    // GET /api/student/certificates/<certificate_id>/download
+    CERTIFICATE_DOWNLOAD: (certificateId: string) => `/api/student/certificates/${certificateId}/download`,
+
+    // GET /api/student/certificates/course/<course_id>
+    CERTIFICATE_BY_COURSE: (courseId: string) => `/api/student/certificates/course/${courseId}`,
+
+    // POST /api/student/certificates/course/<course_id>/claim - Claim certificate for completed course
+    CERTIFICATE_CLAIM: (courseId: string) => `/api/student/certificates/course/${courseId}/claim`,
   }
 
 } as const;
