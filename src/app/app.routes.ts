@@ -43,6 +43,15 @@ export const routes: Routes = [
       )
   },
   {
+    path: 'certificates',
+    canActivate: [AuthGuard],
+    canActivateChild: [AuthGuard],
+    loadChildren: () =>
+      import('./pages/certificates/routes').then(
+        (m) => m.CertificatesRoutingModule
+      )
+  },
+  {
     path: '**',
     redirectTo: 'authentication'
   }
