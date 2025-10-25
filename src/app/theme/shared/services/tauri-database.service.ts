@@ -538,20 +538,66 @@ export class TauriDatabaseService {
   }
 
   // ============================================================================
-  // CONTENT PROGRESS COMMANDS (NEW - ADDED)
+  // CONTENT PROGRESS COMMANDS
   // ============================================================================
 
+  /**
+   * Save content progress (viewed/completed) to content_progress table
+   */
   async saveContentProgress(progressData: any): Promise<string> {
-    // TODO: Implement Rust command 'save_content_progress'
-    // This should save content progress (viewed/completed) to content_progress table
-    console.warn('TODO: saveContentProgress - Rust implementation pending');
-    return Promise.resolve('Content progress saved (mock)');
+    const dbPath = await this.ensurePath();
+    return invoke<string>('save_content_progress', {
+      dbPath,
+      progressData: JSON.stringify(progressData)
+    });
   }
 
+  /**
+   * Get all content progress records for an enrollment
+   */
   async getContentProgress(enrollmentId: string): Promise<any[]> {
-    // TODO: Implement Rust command 'get_content_progress'
-    // This should return all content progress records for an enrollment
-    console.warn('TODO: getContentProgress - Rust implementation pending');
-    return Promise.resolve([]);
+    const dbPath = await this.ensurePath();
+    const progressJson = await invoke<string>('get_content_progress', {
+      dbPath,
+      enrollmentId
+    });
+    return JSON.parse(progressJson);
+  }
+
+  /**
+   * Get content progress for a specific content block
+   */
+  async getContentProgressByContentId(enrollmentId: string, contentId: string): Promise<any> {
+    const dbPath = await this.ensurePath();
+    const progressJson = await invoke<string>('get_content_progress_by_content_id', {
+      dbPath,
+      enrollmentId,
+      contentId
+    });
+    return JSON.parse(progressJson);
+  }
+
+  /**
+   * Mark content as viewed (helper method)
+   */
+  async markContentAsViewed(enrollmentId: string, contentId: string): Promise<string> {
+    const dbPath = await this.ensurePath();
+    return invoke<string>('mark_content_as_viewed', {
+      dbPath,
+      enrollmentId,
+      contentId
+    });
+  }
+
+  /**
+   * Mark content as completed (helper method)
+   */
+  async markContentAsCompleted(enrollmentId: string, contentId: string): Promise<string> {
+    const dbPath = await this.ensurePath();
+    return invoke<string>('mark_content_as_completed', {
+      dbPath,
+      enrollmentId,
+      contentId
+    });
   }
 }

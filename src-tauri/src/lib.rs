@@ -52,7 +52,8 @@ pub fn run() {
     .invoke_handler(tauri::generate_handler![
       toggle_fullscreen,
       get_database_path,
-      // Auth commands
+
+      // ========== AUTH COMMANDS ==========
       commands::auth::save_auth_tokens,
       commands::auth::get_auth_tokens,
       commands::auth::clear_auth_tokens,
@@ -61,16 +62,18 @@ pub fn run() {
       commands::auth::get_current_user,
       commands::auth::get_user_by_email,
 
-      // Course commands
+      // ========== COURSE COMMANDS ==========
       commands::courses::save_course,
       commands::courses::save_courses_bulk,
       commands::courses::get_all_courses,
       commands::courses::get_enrolled_courses,
       commands::courses::get_course_by_id,
+      commands::courses::save_course_media,  // ✅ ADDED: New command for course media
       commands::courses::save_enrollment,
       commands::courses::get_user_enrollments,
       commands::courses::check_enrollment_exists,
-      // Lesson commands
+
+      // ========== LESSON COMMANDS (Modules, Content, Quizzes, Questions) ==========
       commands::lessons::save_module,
       commands::lessons::save_modules_bulk,
       commands::lessons::get_course_modules,
@@ -82,15 +85,23 @@ pub fn run() {
       commands::lessons::save_quiz,
       commands::lessons::get_module_quiz,
       commands::lessons::get_quiz_by_id,
+      commands::lessons::get_course_final_exam,
       commands::lessons::save_question,
       commands::lessons::save_questions_bulk,
       commands::lessons::get_quiz_questions,
-      commands::lessons::get_course_final_exam,
-      // Progress commands
+
+      // ========== PROGRESS COMMANDS (Module Progress, Content Progress, Quiz Attempts) ==========
       commands::progress::save_module_progress,
       commands::progress::get_enrollment_progress,
       commands::progress::update_module_status,
       commands::progress::get_course_progress_summary,
+      // Content Progress 
+      commands::progress::save_content_progress,
+      commands::progress::get_content_progress,
+      commands::progress::get_content_progress_by_content_id,
+      commands::progress::mark_content_as_viewed,
+      commands::progress::mark_content_as_completed,
+      // Quiz Attempts
       commands::progress::save_quiz_attempt,
       commands::progress::get_quiz_attempts,
       commands::progress::get_quiz_attempt_by_id,
@@ -99,7 +110,8 @@ pub fn run() {
       commands::progress::get_attempt_answers,
       commands::progress::calculate_attempt_score,
       commands::progress::get_best_quiz_score,
-      // Sync commands
+
+      // ========== SYNC COMMANDS ==========
       commands::sync::add_to_sync_queue,
       commands::sync::get_sync_queue,
       commands::sync::get_sync_queue_count,

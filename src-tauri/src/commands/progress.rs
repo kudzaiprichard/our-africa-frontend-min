@@ -14,10 +14,13 @@ pub fn save_module_progress(db_path: String, progress_data: String) -> Result<St
     let progress: JsonValue = serde_json::from_str(&progress_data)
         .map_err(|e| format!("Invalid JSON: {}", e))?;
 
+    // ✅ ADDED: New fields for content progress tracking
     conn.execute(
         "INSERT OR REPLACE INTO module_progress
-         (id, enrollment_id, module_id, status, started_at, completed_at, created_at, updated_at, last_synced_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'))",
+         (id, enrollment_id, module_id, status, started_at, completed_at,
+          auto_completed, content_completion_percentage, completed_content_count, total_content_count,
+          created_at, updated_at, last_synced_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, datetime('now'))",
         params![
             progress["id"].as_str(),
             progress["enrollment_id"].as_str(),
@@ -25,6 +28,10 @@ pub fn save_module_progress(db_path: String, progress_data: String) -> Result<St
             progress["status"].as_str(),
             progress["started_at"].as_str(),
             progress["completed_at"].as_str(),
+            progress["auto_completed"].as_bool().unwrap_or(false),
+            progress["content_completion_percentage"].as_f64().unwrap_or(0.0),
+            progress["completed_content_count"].as_i64().unwrap_or(0),
+            progress["total_content_count"].as_i64().unwrap_or(0),
             progress["created_at"].as_str(),
             progress["updated_at"].as_str(),
         ],
@@ -48,6 +55,12 @@ pub fn get_enrollment_progress(db_path: String, enrollment_id: String) -> Result
                 'status', mp.status,
                 'started_at', mp.started_at,
                 'completed_at', mp.completed_at,
+                'auto_completed', mp.auto_completed,
+                'content_completion_percentage', mp.content_completion_percentage,
+                'completed_content_count', mp.completed_content_count,
+                'total_content_count', mp.total_content_count,
+                'created_at', mp.created_at,
+                'updated_at', mp.updated_at,
                 'module', json_object(
                     'id', m.id,
                     'title', m.title,
@@ -139,6 +152,155 @@ pub fn get_course_progress_summary(
         .map_err(|e| format!("Failed to get summary: {}", e))?;
 
     Ok(summary_json)
+}
+
+// ============================================================================
+// CONTENT PROGRESS COMMANDS (NEW - ADDED)
+// ============================================================================
+
+#[tauri::command]
+pub fn save_content_progress(db_path: String, progress_data: String) -> Result<String, String> {
+    let conn = get_connection(&db_path)
+        .map_err(|e| format!("Database connection failed: {}", e))?;
+
+    let progress: JsonValue = serde_json::from_str(&progress_data)
+        .map_err(|e| format!("Invalid JSON: {}", e))?;
+
+    conn.execute(
+        "INSERT OR REPLACE INTO content_progress
+         (id, enrollment_id, content_id, is_completed, viewed_at, completed_at, created_at, updated_at, last_synced_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'))",
+        params![
+            progress["id"].as_str(),
+            progress["enrollment_id"].as_str(),
+            progress["content_id"].as_str(),
+            progress["is_completed"].as_bool().unwrap_or(false),
+            progress["viewed_at"].as_str(),
+            progress["completed_at"].as_str(),
+            progress["created_at"].as_str(),
+            progress["updated_at"].as_str(),
+        ],
+    )
+    .map_err(|e| format!("Failed to save content progress: {}", e))?;
+
+    Ok("Content progress saved successfully".to_string())
+}
+
+#[tauri::command]
+pub fn get_content_progress(db_path: String, enrollment_id: String) -> Result<String, String> {
+    let conn = get_connection(&db_path)
+        .map_err(|e| format!("Database connection failed: {}", e))?;
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT json_object(
+                'id', cp.id,
+                'enrollment_id', cp.enrollment_id,
+                'content_id', cp.content_id,
+                'is_completed', cp.is_completed,
+                'viewed_at', cp.viewed_at,
+                'completed_at', cp.completed_at,
+                'created_at', cp.created_at,
+                'updated_at', cp.updated_at
+             ) FROM content_progress cp
+             WHERE cp.enrollment_id = ?1
+             ORDER BY cp.created_at ASC",
+        )
+        .map_err(|e| format!("Failed to prepare query: {}", e))?;
+
+    let progress: Vec<String> = stmt
+        .query_map(params![enrollment_id], |row| row.get(0))
+        .map_err(|e| format!("Query failed: {}", e))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    let progress_json = format!("[{}]", progress.join(","));
+    Ok(progress_json)
+}
+
+#[tauri::command]
+pub fn get_content_progress_by_content_id(
+    db_path: String,
+    enrollment_id: String,
+    content_id: String,
+) -> Result<String, String> {
+    let conn = get_connection(&db_path)
+        .map_err(|e| format!("Database connection failed: {}", e))?;
+
+    let progress_json: String = conn
+        .query_row(
+            "SELECT json_object(
+                'id', id,
+                'enrollment_id', enrollment_id,
+                'content_id', content_id,
+                'is_completed', is_completed,
+                'viewed_at', viewed_at,
+                'completed_at', completed_at,
+                'created_at', created_at,
+                'updated_at', updated_at
+             ) FROM content_progress
+             WHERE enrollment_id = ?1 AND content_id = ?2",
+            params![enrollment_id, content_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Content progress not found: {}", e))?;
+
+    Ok(progress_json)
+}
+
+#[tauri::command]
+pub fn mark_content_as_viewed(
+    db_path: String,
+    enrollment_id: String,
+    content_id: String,
+) -> Result<String, String> {
+    let conn = get_connection(&db_path)
+        .map_err(|e| format!("Database connection failed: {}", e))?;
+
+    let now = chrono::Utc::now().to_rfc3339();
+    let progress_id = format!("cp_{}_{}", enrollment_id, content_id);
+
+    conn.execute(
+        "INSERT OR REPLACE INTO content_progress
+         (id, enrollment_id, content_id, is_completed, viewed_at, created_at, updated_at, last_synced_at)
+         VALUES (?1, ?2, ?3, 0, ?4, ?5, ?6, datetime('now'))
+         ON CONFLICT(enrollment_id, content_id) DO UPDATE SET
+            viewed_at = ?4,
+            updated_at = ?6,
+            last_synced_at = datetime('now')",
+        params![progress_id, enrollment_id, content_id, &now, &now, &now],
+    )
+    .map_err(|e| format!("Failed to mark content as viewed: {}", e))?;
+
+    Ok("Content marked as viewed successfully".to_string())
+}
+
+#[tauri::command]
+pub fn mark_content_as_completed(
+    db_path: String,
+    enrollment_id: String,
+    content_id: String,
+) -> Result<String, String> {
+    let conn = get_connection(&db_path)
+        .map_err(|e| format!("Database connection failed: {}", e))?;
+
+    let now = chrono::Utc::now().to_rfc3339();
+    let progress_id = format!("cp_{}_{}", enrollment_id, content_id);
+
+    conn.execute(
+        "INSERT OR REPLACE INTO content_progress
+         (id, enrollment_id, content_id, is_completed, completed_at, created_at, updated_at, last_synced_at)
+         VALUES (?1, ?2, ?3, 1, ?4, ?5, ?6, datetime('now'))
+         ON CONFLICT(enrollment_id, content_id) DO UPDATE SET
+            is_completed = 1,
+            completed_at = ?4,
+            updated_at = ?6,
+            last_synced_at = datetime('now')",
+        params![progress_id, enrollment_id, content_id, &now, &now, &now],
+    )
+    .map_err(|e| format!("Failed to mark content as completed: {}", e))?;
+
+    Ok("Content marked as completed successfully".to_string())
 }
 
 // ============================================================================
@@ -333,12 +495,10 @@ pub fn get_attempt_answers(db_path: String, attempt_id: String) -> Result<String
                 'selected_option_id', qa.selected_option_id,
                 'is_correct', qa.is_correct,
                 'points_earned', qa.points_earned,
-                'question_text', q.question_text,
-                'question_points', q.points,
-                'option_text', qo.option_text
+                'created_at', qa.created_at,
+                'updated_at', qa.updated_at
              ) FROM quiz_answers qa
              JOIN questions q ON qa.question_id = q.id
-             JOIN question_options qo ON qa.selected_option_id = qo.id
              WHERE qa.attempt_id = ?1
              ORDER BY q.order_index ASC",
         )

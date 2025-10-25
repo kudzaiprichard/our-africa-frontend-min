@@ -126,7 +126,7 @@ pub fn get_module_by_id(db_path: String, module_id: String) -> Result<String, St
 }
 
 // ============================================================================
-// CONTENT BLOCK COMMANDS (Quill JSON)
+// CONTENT BLOCK COMMANDS
 // ============================================================================
 
 #[tauri::command]
@@ -241,7 +241,7 @@ pub fn get_content_block_by_id(db_path: String, content_id: String) -> Result<St
 }
 
 // ============================================================================
-// QUIZ COMMANDS
+// QUIZ COMMANDS (WITHOUT student-specific fields)
 // ============================================================================
 
 #[tauri::command]
@@ -257,13 +257,13 @@ pub fn save_quiz(db_path: String, quiz_data: String) -> Result<String, String> {
     let created_at = quiz["created_at"].as_str().unwrap_or(&now);
     let updated_at = quiz["updated_at"].as_str().unwrap_or(&now);
 
+    // ✅ REMOVED student-specific fields - they're calculated at runtime from quiz_attempts
     conn.execute(
         "INSERT OR REPLACE INTO quizzes
          (id, title, description, quiz_type, module_id, course_id, time_limit_minutes,
           pass_mark_percentage, max_attempts, attempt_reset_hours, shuffle_questions,
-          question_count, student_best_score, student_attempts_count, student_can_attempt,
-          student_passed, created_at, updated_at, last_synced_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, datetime('now'))",
+          question_count, created_at, updated_at, last_synced_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, datetime('now'))",
         params![
             quiz["id"].as_str(),
             quiz["title"].as_str(),
@@ -277,10 +277,6 @@ pub fn save_quiz(db_path: String, quiz_data: String) -> Result<String, String> {
             quiz["attempt_reset_hours"].as_i64(),
             quiz["shuffle_questions"].as_bool(),
             quiz["question_count"].as_i64(),
-            quiz["student_best_score"].as_f64(),
-            quiz["student_attempts_count"].as_i64(),
-            quiz["student_can_attempt"].as_bool(),
-            quiz["student_passed"].as_bool(),
             created_at,
             updated_at,
         ],
@@ -295,38 +291,7 @@ pub fn get_module_quiz(db_path: String, module_id: String) -> Result<String, Str
     let conn = get_connection(&db_path)
         .map_err(|e| format!("Database connection failed: {}", e))?;
 
-    let quiz_json: String = conn
-        .query_row(
-            "SELECT json_object(
-                'id', id,
-                'title', title,
-                'description', description,
-                'quiz_type', quiz_type,
-                'module_id', module_id,
-                'time_limit_minutes', time_limit_minutes,
-                'pass_mark_percentage', pass_mark_percentage,
-                'max_attempts', max_attempts,
-                'attempt_reset_hours', attempt_reset_hours,
-                'shuffle_questions', shuffle_questions,
-                'question_count', question_count,
-                'student_best_score', student_best_score,
-                'student_attempts_count', student_attempts_count,
-                'student_can_attempt', student_can_attempt,
-                'student_passed', student_passed
-             ) FROM quizzes WHERE module_id = ?1",
-            params![module_id],
-            |row| row.get(0),
-        )
-        .map_err(|e| format!("Quiz not found: {}", e))?;
-
-    Ok(quiz_json)
-}
-
-#[tauri::command]
-pub fn get_quiz_by_id(db_path: String, quiz_id: String) -> Result<String, String> {
-    let conn = get_connection(&db_path)
-        .map_err(|e| format!("Database connection failed: {}", e))?;
-
+    // ✅ Returns base quiz data WITHOUT student-specific fields
     let quiz_json: String = conn
         .query_row(
             "SELECT json_object(
@@ -342,10 +307,38 @@ pub fn get_quiz_by_id(db_path: String, quiz_id: String) -> Result<String, String
                 'attempt_reset_hours', attempt_reset_hours,
                 'shuffle_questions', shuffle_questions,
                 'question_count', question_count,
-                'student_best_score', student_best_score,
-                'student_attempts_count', student_attempts_count,
-                'student_can_attempt', student_can_attempt,
-                'student_passed', student_passed,
+                'created_at', created_at,
+                'updated_at', updated_at
+             ) FROM quizzes WHERE module_id = ?1",
+            params![module_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Quiz not found: {}", e))?;
+
+    Ok(quiz_json)
+}
+
+#[tauri::command]
+pub fn get_quiz_by_id(db_path: String, quiz_id: String) -> Result<String, String> {
+    let conn = get_connection(&db_path)
+        .map_err(|e| format!("Database connection failed: {}", e))?;
+
+    // ✅ Returns base quiz data WITHOUT student-specific fields
+    let quiz_json: String = conn
+        .query_row(
+            "SELECT json_object(
+                'id', id,
+                'title', title,
+                'description', description,
+                'quiz_type', quiz_type,
+                'module_id', module_id,
+                'course_id', course_id,
+                'time_limit_minutes', time_limit_minutes,
+                'pass_mark_percentage', pass_mark_percentage,
+                'max_attempts', max_attempts,
+                'attempt_reset_hours', attempt_reset_hours,
+                'shuffle_questions', shuffle_questions,
+                'question_count', question_count,
                 'created_at', created_at,
                 'updated_at', updated_at
              ) FROM quizzes WHERE id = ?1",
@@ -353,6 +346,40 @@ pub fn get_quiz_by_id(db_path: String, quiz_id: String) -> Result<String, String
             |row| row.get(0),
         )
         .map_err(|e| format!("Quiz not found: {}", e))?;
+
+    Ok(quiz_json)
+}
+
+#[tauri::command]
+pub fn get_course_final_exam(db_path: String, course_id: String) -> Result<String, String> {
+    let conn = get_connection(&db_path)
+        .map_err(|e| format!("Database connection failed: {}", e))?;
+
+    // ✅ Returns base quiz data WITHOUT student-specific fields
+    let quiz_json: String = conn
+        .query_row(
+            "SELECT json_object(
+                'id', id,
+                'title', title,
+                'description', description,
+                'quiz_type', quiz_type,
+                'module_id', module_id,
+                'course_id', course_id,
+                'time_limit_minutes', time_limit_minutes,
+                'pass_mark_percentage', pass_mark_percentage,
+                'max_attempts', max_attempts,
+                'attempt_reset_hours', attempt_reset_hours,
+                'shuffle_questions', shuffle_questions,
+                'question_count', question_count,
+                'created_at', created_at,
+                'updated_at', updated_at
+             ) FROM quizzes
+             WHERE course_id = ?1 AND quiz_type = 'final_exam'
+             LIMIT 1",
+            params![course_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Final exam not found: {}", e))?;
 
     Ok(quiz_json)
 }
@@ -376,14 +403,13 @@ pub fn save_question(db_path: String, question_data: String) -> Result<String, S
 
     conn.execute(
         "INSERT OR REPLACE INTO questions
-         (id, quiz_id, question_text, image_url, image_file_id, order_index, points, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+         (id, quiz_id, question_text, image_url, order_index, points, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
         params![
             question["id"].as_str(),
             question["quiz_id"].as_str(),
             question["question_text"].as_str(),
             question["image_url"].as_str(),
-            question["image_file_id"].as_str(),
             question["order"].as_i64().or(question["order_index"].as_i64()),
             question["points"].as_f64(),
             created_at,
@@ -415,43 +441,6 @@ pub fn save_question(db_path: String, question_data: String) -> Result<String, S
 }
 
 #[tauri::command]
-pub fn get_course_final_exam(db_path: String, course_id: String) -> Result<String, String> {
-    let conn = get_connection(&db_path)
-        .map_err(|e| format!("Database connection failed: {}", e))?;
-
-    let quiz_json: String = conn
-        .query_row(
-            "SELECT json_object(
-                'id', id,
-                'title', title,
-                'description', description,
-                'quiz_type', quiz_type,
-                'module_id', module_id,
-                'course_id', course_id,
-                'time_limit_minutes', time_limit_minutes,
-                'pass_mark_percentage', pass_mark_percentage,
-                'max_attempts', max_attempts,
-                'attempt_reset_hours', attempt_reset_hours,
-                'shuffle_questions', shuffle_questions,
-                'question_count', question_count,
-                'student_best_score', student_best_score,
-                'student_attempts_count', student_attempts_count,
-                'student_can_attempt', student_can_attempt,
-                'student_passed', student_passed,
-                'created_at', created_at,
-                'updated_at', updated_at
-             ) FROM quizzes
-             WHERE course_id = ?1 AND quiz_type = 'final_exam'
-             LIMIT 1",
-            params![course_id],
-            |row| row.get(0),
-        )
-        .map_err(|e| format!("Final exam not found: {}", e))?;
-
-    Ok(quiz_json)
-}
-
-#[tauri::command]
 pub fn save_questions_bulk(db_path: String, questions_data: String) -> Result<String, String> {
     let conn = get_connection(&db_path)
         .map_err(|e| format!("Database connection failed: {}", e))?;
@@ -469,14 +458,13 @@ pub fn save_questions_bulk(db_path: String, questions_data: String) -> Result<St
 
         conn.execute(
             "INSERT OR REPLACE INTO questions
-             (id, quiz_id, question_text, image_url, image_file_id, order_index, points, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+             (id, quiz_id, question_text, image_url, order_index, points, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
                 question["id"].as_str(),
                 question["quiz_id"].as_str(),
                 question["question_text"].as_str(),
                 question["image_url"].as_str(),
-                question["image_file_id"].as_str(),
                 question["order"].as_i64().or(question["order_index"].as_i64()),
                 question["points"].as_f64(),
                 created_at,
@@ -521,13 +509,13 @@ pub fn get_quiz_questions(db_path: String, quiz_id: String) -> Result<String, St
                 'quiz_id', q.quiz_id,
                 'question_text', q.question_text,
                 'image_url', q.image_url,
-                'image_file_id', q.image_file_id,
                 'order', q.order_index,
                 'points', q.points,
                 'options', (
                     SELECT json_group_array(
                         json_object(
                             'id', o.id,
+                            'question_id', o.question_id,
                             'option_text', o.option_text,
                             'is_correct', o.is_correct,
                             'order', o.order_index
