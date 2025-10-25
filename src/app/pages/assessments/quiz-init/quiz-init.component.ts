@@ -25,6 +25,7 @@ export class QuizInitComponent implements OnInit, OnDestroy {
   quizId: string = '';
   moduleId: string = '';
   courseId: string = '';
+  isFinalExam: boolean = false;
 
   quiz: QuizForStudent | null = null;
   module: ModuleWithProgress | null = null;
@@ -44,9 +45,14 @@ export class QuizInitComponent implements OnInit, OnDestroy {
         this.quizId = params['quizId'];
         this.moduleId = params['moduleId'];
         this.courseId = params['courseId'];
+        this.isFinalExam = params['isFinalExam'] === 'true';
 
-        if (this.quizId && this.moduleId) {
-          this.loadQuizData();
+        if (this.quizId && (this.moduleId || this.isFinalExam)) {
+          if (this.isFinalExam) {
+            this.loadFinalExamData();
+          } else {
+            this.loadQuizData();
+          }
         } else {
           this.error = 'Missing quiz or module information';
         }
@@ -83,25 +89,58 @@ export class QuizInitComponent implements OnInit, OnDestroy {
       });
   }
 
+  // ✅ NEW: Load final exam data without requiring module
+  loadFinalExamData(): void {
+    this.isLoading = true;
+    this.error = null;
+
+    this.studentCourseService.getQuizQuestions(this.quizId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          this.quiz = response.quiz;
+          this.module = null; // No module for final exam
+          this.isLoading = false;
+
+          if (!this.quiz) {
+            this.error = 'No quiz found';
+          }
+        },
+        error: (err) => {
+          console.error('Error loading final exam data:', err);
+          this.error = 'Failed to load exam information';
+          this.isLoading = false;
+        }
+      });
+  }
+
   startQuiz(): void {
     if (!this.quiz) return;
 
     this.router.navigate(['/assessments/quiz/attempt'], {
       queryParams: {
         quizId: this.quiz.id,
-        moduleId: this.moduleId,
-        courseId: this.courseId
+        moduleId: this.moduleId || 'final-exam',
+        courseId: this.courseId,
+        isFinalExam: this.isFinalExam
       }
     });
   }
 
   cancel(): void {
-    this.router.navigate(['/courses/module/content'], {
-      queryParams: {
-        moduleId: this.moduleId,
-        courseId: this.courseId
-      }
-    });
+    // ✅ If final exam, go back to course details; otherwise go to module content
+    if (this.isFinalExam || !this.moduleId) {
+      this.router.navigate(['/courses/details'], {
+        queryParams: { id: this.courseId }
+      });
+    } else {
+      this.router.navigate(['/courses/module/content'], {
+        queryParams: {
+          moduleId: this.moduleId,
+          courseId: this.courseId
+        }
+      });
+    }
   }
 
   get quizTitle(): string {
@@ -109,6 +148,10 @@ export class QuizInitComponent implements OnInit, OnDestroy {
   }
 
   get moduleTitle(): string {
+    // ✅ Show "Final Exam" if it's a final exam
+    if (this.isFinalExam) {
+      return 'Final Exam';
+    }
     return this.module?.title || '';
   }
 

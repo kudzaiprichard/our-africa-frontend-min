@@ -149,6 +149,10 @@ export class QuizResultsComponent implements OnInit, OnDestroy {
     return this.results?.passed ? 'Quiz Passed!' : 'Quiz Failed';
   }
 
+  get isFinalExam(): boolean {
+    return this.moduleId === 'final-exam';
+  }
+
   isCorrectOption(question: QuestionWithAnswerResult, optionId: string): boolean {
     return question.correct_option_id === optionId;
   }
@@ -170,18 +174,29 @@ export class QuizResultsComponent implements OnInit, OnDestroy {
       queryParams: {
         quizId: this.quizId,
         moduleId: this.moduleId,
-        courseId: this.courseId
+        courseId: this.courseId,
+        isFinalExam: this.isFinalExam
       }
     });
   }
 
   continueLearning(): void {
-    this.router.navigate(['/courses/module/content'], {
-      queryParams: {
-        moduleId: this.moduleId,
-        courseId: this.courseId
-      }
-    });
+    // If final exam or no valid moduleId, go to course details
+    if (this.isFinalExam || !this.moduleId) {
+      this.router.navigate(['/courses/details'], {
+        queryParams: {
+          id: this.courseId
+        }
+      });
+    } else {
+      // For module quizzes, go back to module content
+      this.router.navigate(['/courses/module/content'], {
+        queryParams: {
+          moduleId: this.moduleId,
+          courseId: this.courseId
+        }
+      });
+    }
   }
 
   downloadResults(): void {

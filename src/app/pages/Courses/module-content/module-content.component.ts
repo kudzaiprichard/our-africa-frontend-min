@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil, forkJoin } from 'rxjs';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { generateHTML } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
@@ -46,6 +46,11 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
   currentContentIndex: number = 0;
   completedContentIds = new Set<string>();
 
+  // ✅ NEW: Final exam properties
+  finalExam: any = null; // Will hold final exam details
+  canTakeFinalExam: boolean = false;
+  allModulesCompleted: boolean = false;
+
   isLoading = false;
   error: string | null = null;
 
@@ -56,7 +61,7 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
   // Track last viewed content to prevent duplicate view calls
   private lastViewedContentId: string | null = null;
 
-  // ✅ NEW: Cooldown timer properties
+  // ✅ Cooldown timer properties
   cooldownTimeRemaining: string | null = null;
   private cooldownInterval?: any;
 
@@ -106,7 +111,7 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
       this.markContentAsViewed(this.currentContent.id);
     }
 
-    // ✅ Clear cooldown timer
+    // Clear cooldown timer
     if (this.cooldownInterval) {
       clearInterval(this.cooldownInterval);
     }
@@ -119,13 +124,30 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
     this.isLoading = true;
     this.error = null;
 
-    this.studentCourseService.getModuleContent(this.moduleId)
+    // ✅ Load both module content AND course details (for final exam)
+    forkJoin({
+      moduleContent: this.studentCourseService.getModuleContent(this.moduleId),
+      courseDetails: this.studentCourseService.getCourseDetails(this.courseId),
+      courseProgress: this.studentCourseService.getCourseProgress(this.courseId)
+    })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (response: GetModuleContentForStudentResponse) => {
-          this.module = response.module;
-          this.content = response.content;
-          this.quiz = response.quiz || null;
+        next: (response) => {
+          // Module content data
+          this.module = response.moduleContent.module;
+          this.content = response.moduleContent.content;
+          this.quiz = response.moduleContent.quiz || null;
+
+          // ✅ Final exam data - with type safety fix
+          // Check both locations: root level and inside course object
+          const courseDetailsResponse = response.courseDetails as any;
+          this.finalExam = courseDetailsResponse.final_exam || courseDetailsResponse.course?.final_exam || null;
+
+          // ✅ Check if all modules are completed
+          this.allModulesCompleted = response.courseProgress.completed_modules === response.courseProgress.total_modules;
+
+          // ✅ Check if can take final exam
+          this.canTakeFinalExam = response.courseProgress.can_take_final_exam;
 
           // Initialize completed content IDs from progress data
           this.content.forEach(block => {
@@ -135,8 +157,8 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
           });
 
           // If resume_content_id is provided, jump to that content
-          if (response.resume_content_id) {
-            const resumeIndex = this.content.findIndex(c => c.id === response.resume_content_id);
+          if (response.moduleContent.resume_content_id) {
+            const resumeIndex = this.content.findIndex(c => c.id === response.moduleContent.resume_content_id);
             if (resumeIndex !== -1) {
               this.currentContentIndex = resumeIndex;
             }
@@ -150,7 +172,7 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
           // Only track VIEW, not completion
           this.autoTrackContentView();
 
-          // ✅ NEW: Start cooldown timer if quiz has cooldown
+          // Start cooldown timer if quiz has cooldown
           this.startCooldownTimer();
 
           this.isLoading = false;
@@ -163,7 +185,7 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
       });
   }
 
-  // ✅ NEW: Start cooldown countdown timer
+  // ✅ Start cooldown countdown timer
   private startCooldownTimer(): void {
     // Clear existing timer
     if (this.cooldownInterval) {
@@ -201,7 +223,7 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
       });
   }
 
-  // ✅ NEW: Update cooldown display
+  // ✅ Update cooldown display
   private updateCooldownDisplay(nextAttemptDate: Date): void {
     const now = new Date();
     const diffMs = nextAttemptDate.getTime() - now.getTime();
@@ -407,12 +429,15 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
 
   /**
    * ✅ UPDATED: Check if student can take the quiz
-   * Unlocks quiz if on last content block OR all content completed
+   * Disables quiz if already passed
    */
   get canTakeQuiz(): boolean {
     if (!this.quiz) return false;
 
-    // ✅ NEW: If on last content block, allow quiz (they're about to complete it)
+    // ✅ NEW: Disable quiz if already passed
+    if (this.quiz.student_passed) return false;
+
+    // If on last content block, allow quiz (they're about to complete it)
     if (this.isLastContent) {
       return this.quiz.student_can_attempt;
     }
@@ -425,10 +450,15 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * ✅ UPDATED: Get quiz disabled reason with cooldown timer
+   * ✅ UPDATED: Get quiz disabled reason
    */
   get quizDisabledReason(): string | null {
     if (!this.quiz) return null;
+
+    // ✅ NEW: If quiz is passed, show completion message
+    if (this.quiz.student_passed) {
+      return 'Quiz completed ✓';
+    }
 
     // If on last content, only check attempts
     if (this.isLastContent) {
@@ -463,7 +493,7 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
    * Check if we should show "Start Quiz" instead of "Next/Finish"
    */
   get shouldShowStartQuiz(): boolean {
-    return !!(this.isLastContent && this.module?.has_quiz && this.quiz);
+    return !!(this.isLastContent && this.module?.has_quiz && this.quiz && !this.quiz.student_passed);
   }
 
   /**
@@ -474,6 +504,18 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
       return 'Start Quiz';
     }
     return this.isLastContent ? 'Finish Content' : 'Next Content';
+  }
+
+  /**
+   * ✅ NEW: Check if should show final exam prompt
+   */
+  get shouldShowFinalExamPrompt(): boolean {
+    return !!(
+      this.finalExam &&
+      this.canTakeFinalExam &&
+      !this.finalExam.student_passed &&
+      this.module?.progress.status === 'completed'
+    );
   }
 
   // ========== AUTO-TRACKING METHODS ==========
@@ -599,17 +641,7 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
     console.log('🎉 Module auto-completed!');
 
     // Reload module content to get updated progress
-    this.studentCourseService.getModuleContent(this.moduleId)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (response) => {
-          this.module = response.module;
-          console.log('✅ Module progress updated after auto-completion');
-        },
-        error: (err) => {
-          console.error('❌ Error refreshing module after auto-completion:', err);
-        }
-      });
+    this.loadModuleContent();
   }
 
   /**
@@ -714,6 +746,25 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
           courseId: this.courseId
         }
       });
+    });
+  }
+
+  /**
+   * Navigate to final exam
+   */
+  attemptFinalExam(): void {
+    if (!this.finalExam || !this.canTakeFinalExam) {
+      console.warn('Cannot take final exam');
+      return;
+    }
+
+    this.router.navigate(['/assessments/quiz/initiate'], {
+      queryParams: {
+        quizId: this.finalExam.id,
+        moduleId: 'final-exam',
+        courseId: this.courseId,
+        isFinalExam: 'true' // Pass as string
+      }
     });
   }
 

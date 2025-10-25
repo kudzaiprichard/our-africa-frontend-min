@@ -65,14 +65,14 @@ export class QuizAttemptComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(params => {
         this.quizId = params['quizId'];
-        this.moduleId = params['moduleId'];
+        this.moduleId = params['moduleId'] || 'final-exam';
         this.courseId = params['courseId'];
         this.attemptId = params['attemptId'] || '';
 
-        if (this.quizId && this.moduleId) {
+        if (this.quizId) {
           this.startQuizAttempt();
         } else {
-          this.error = 'Missing quiz or module information';
+          this.error = 'Missing quiz information';
         }
       });
   }
@@ -158,9 +158,16 @@ export class QuizAttemptComponent implements OnInit, OnDestroy {
     this.isNavigating = true;
     this.cleanup();
 
-    this.router.navigate(['/courses/module/content'], {
-      queryParams: { moduleId: this.moduleId, courseId: this.courseId }
-    });
+    // If final exam or no moduleId, go to course details
+    if (this.moduleId === 'final-exam' || !this.moduleId) {
+      this.router.navigate(['/courses/details'], {
+        queryParams: { id: this.courseId }
+      });
+    } else {
+      this.router.navigate(['/courses/module/content'], {
+        queryParams: { moduleId: this.moduleId, courseId: this.courseId }
+      });
+    }
   }
 
   private cleanup(): void {
@@ -181,6 +188,80 @@ export class QuizAttemptComponent implements OnInit, OnDestroy {
     this.isLoading = true;
     this.error = null;
 
+    // Check if this is a final exam
+    const isFinalExam = this.moduleId === 'final-exam';
+
+    if (isFinalExam) {
+      // For final exams, load quiz data directly without module content
+      this.loadFinalExamAttempt();
+    } else {
+      // For module quizzes, load module content first
+      this.loadModuleQuizAttempt();
+    }
+  }
+
+  // Load final exam attempt
+  private loadFinalExamAttempt(): void {
+    this.studentCourseService.getQuizAttempts(this.quizId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (attemptsResponse: GetQuizAttemptsResponse) => {
+          // Check if user already passed this quiz
+          const passedAttempt = attemptsResponse.attempts.find(
+            attempt => attempt.passed === true
+          );
+
+          if (passedAttempt) {
+            this.router.navigate(['/assessments/quiz/results'], {
+              queryParams: {
+                attemptId: passedAttempt.id,
+                quizId: this.quizId,
+                moduleId: this.moduleId,
+                courseId: this.courseId
+              }
+            });
+            this.isLoading = false;
+            return;
+          }
+
+          // Check for incomplete attempts
+          const inProgressAttempt = attemptsResponse.attempts.find(
+            (attempt) => attempt.status === 'in_progress'
+          );
+
+          if (inProgressAttempt && !this.attemptId) {
+            const message = `You have an incomplete attempt for this exam started on ${new Date(inProgressAttempt.started_at).toLocaleString()}.\n\nWould you like to continue it?`;
+
+            if (confirm(message)) {
+              this.loadExistingAttempt(inProgressAttempt.id, attemptsResponse.quiz.title);
+            } else {
+              this.router.navigate(['/courses/details'], {
+                queryParams: { id: this.courseId }
+              });
+              this.isLoading = false;
+              return;
+            }
+          } else if (this.attemptId) {
+            this.loadExistingAttempt(this.attemptId, attemptsResponse.quiz.title);
+          } else {
+            if (attemptsResponse.remaining_attempts !== undefined && attemptsResponse.remaining_attempts <= 0) {
+              this.error = 'You have used all available attempts for this exam.';
+              this.isLoading = false;
+              return;
+            }
+            this.startNewQuizAttempt(attemptsResponse.quiz.title);
+          }
+        },
+        error: (err) => {
+          console.error('Error loading final exam attempts:', err);
+          this.error = 'Failed to load exam information';
+          this.isLoading = false;
+        }
+      });
+  }
+
+  // Load module quiz attempt (original logic)
+  private loadModuleQuizAttempt(): void {
     this.studentCourseService.getModuleContent(this.moduleId)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
@@ -340,7 +421,7 @@ export class QuizAttemptComponent implements OnInit, OnDestroy {
         if (this.timeRemaining > 0) {
           this.timeRemaining--;
 
-          // ✅ Auto-submit when time runs out
+          // Auto-submit when time runs out
           if (this.timeRemaining === 0) {
             this.autoSubmitOnTimeout();
           }
@@ -356,7 +437,7 @@ export class QuizAttemptComponent implements OnInit, OnDestroy {
     this.isSubmitting = true;
     this.isNavigating = true;
 
-    // ✅ Force submit even with unanswered questions
+    // Force submit even with unanswered questions
     this.studentCourseService.completeQuizForced(this.attempt.id, true)
       .pipe(takeUntil(this.destroy$))
       .subscribe({

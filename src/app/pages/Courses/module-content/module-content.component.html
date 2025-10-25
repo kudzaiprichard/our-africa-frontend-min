@@ -41,25 +41,31 @@
       class="content-list-item quiz-item"
       *ngIf="module?.has_quiz && quiz"
       [class.disabled]="!canTakeQuiz"
+      [class.completed]="quiz.student_passed"
       [title]="quizDisabledReason || ''"
       (click)="canTakeQuiz ? takeQuiz() : null">
       <div class="content-icon quiz-icon">
         <i class="fas"
-           [class.fa-question-circle]="canTakeQuiz"
-           [class.fa-clock]="!canTakeQuiz && cooldownTimeRemaining"
-           [class.fa-lock]="!canTakeQuiz && !cooldownTimeRemaining"></i>
+           [class.fa-check]="quiz.student_passed"
+           [class.fa-question-circle]="canTakeQuiz && !quiz.student_passed"
+           [class.fa-clock]="!canTakeQuiz && !quiz.student_passed && cooldownTimeRemaining"
+           [class.fa-lock]="!canTakeQuiz && !quiz.student_passed && !cooldownTimeRemaining"></i>
       </div>
       <div class="content-item-info">
         <div class="content-item-title">{{ quiz.title }}</div>
         <div class="content-item-type">
-          <!-- ✅ UPDATED: Show cooldown timer -->
-          <span *ngIf="!canTakeQuiz && cooldownTimeRemaining" class="cooldown-text">
+          <!-- ✅ Show completion status -->
+          <span *ngIf="quiz.student_passed" class="completed-text">
+            <i class="fas fa-check"></i> Completed
+          </span>
+          <!-- ✅ Show cooldown timer -->
+          <span *ngIf="!canTakeQuiz && !quiz.student_passed && cooldownTimeRemaining" class="cooldown-text">
             <i class="fas fa-clock"></i> {{ cooldownTimeRemaining }}
           </span>
-          <span *ngIf="!canTakeQuiz && !cooldownTimeRemaining">
+          <span *ngIf="!canTakeQuiz && !quiz.student_passed && !cooldownTimeRemaining">
             {{ quizDisabledReason }}
           </span>
-          <span *ngIf="canTakeQuiz">Module Quiz</span>
+          <span *ngIf="canTakeQuiz && !quiz.student_passed">Module Quiz</span>
         </div>
       </div>
     </div>
@@ -96,6 +102,7 @@
         </div>
       </div>
     </div>
+    <!-- ✅ CLOSED content-header div -->
 
     <!-- Content Body -->
     <div class="content-body" *ngIf="currentParsedContent">
@@ -105,7 +112,7 @@
     </div>
 
     <!-- Quiz Prompt -->
-    <div class="quiz-prompt" *ngIf="isLastContent && module?.has_quiz && quiz">
+    <div class="quiz-prompt" *ngIf="isLastContent && module?.has_quiz && quiz && !quiz.student_passed">
       <div class="quiz-icon-large">
         <i class="fas"
            [class.fa-question-circle]="canTakeQuiz"
@@ -121,7 +128,7 @@
           Test your knowledge and complete this module by taking the quiz.
         </div>
 
-        <!-- ✅ NEW: Cooldown notice -->
+        <!-- ✅ Cooldown notice -->
         <div class="cooldown-notice" *ngIf="!canTakeQuiz && cooldownTimeRemaining">
           <i class="fas fa-clock"></i>
           <span>Next attempt available in <strong>{{ cooldownTimeRemaining }}</strong></span>
@@ -144,6 +151,82 @@
             <i class="fas fa-lock"></i>
             <span>No attempts remaining</span>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ✅ Module Completed Message (when quiz is passed) -->
+    <div class="module-completed-banner" *ngIf="quiz?.student_passed && module?.progress?.status === 'completed'">
+      <div class="completion-icon">
+        <i class="fas fa-trophy"></i>
+      </div>
+      <div class="completion-info">
+        <h3 class="completion-title">🎉 Module Completed!</h3>
+        <p class="completion-message">
+          Congratulations! You've successfully completed all content and passed the quiz for this module.
+        </p>
+      </div>
+    </div>
+
+    <!-- ✅ NEW: Final Exam Prompt -->
+    <div class="final-exam-prompt" *ngIf="shouldShowFinalExamPrompt">
+      <div class="final-exam-header">
+        <div class="final-exam-icon-large">
+          <i class="fas fa-graduation-cap"></i>
+        </div>
+        <div class="final-exam-title-section">
+          <h2 class="final-exam-title">Ready for the Final Exam?</h2>
+          <p class="final-exam-subtitle">
+            You've completed all modules! Take the final exam to earn your certificate.
+          </p>
+        </div>
+      </div>
+
+      <div class="final-exam-body">
+        <div class="final-exam-info">
+          <h3 class="exam-name">{{ finalExam?.title }}</h3>
+          <p class="exam-description" *ngIf="finalExam?.description">
+            {{ finalExam.description }}
+          </p>
+          <p class="exam-description" *ngIf="!finalExam?.description">
+            This comprehensive exam will test your understanding of all course material.
+          </p>
+
+          <div class="exam-requirements">
+            <div class="requirement-item">
+              <i class="fas fa-check-circle"></i>
+              <span>All modules completed</span>
+            </div>
+            <div class="requirement-item" *ngIf="finalExam?.pass_mark_percentage">
+              <i class="fas fa-target"></i>
+              <span>Pass mark: {{ finalExam.pass_mark_percentage }}%</span>
+            </div>
+            <div class="requirement-item" *ngIf="finalExam?.time_limit_minutes">
+              <i class="fas fa-clock"></i>
+              <span>Time limit: {{ finalExam.time_limit_minutes }} minutes</span>
+            </div>
+            <div class="requirement-item" *ngIf="finalExam?.question_count">
+              <i class="fas fa-question-circle"></i>
+              <span>{{ finalExam.question_count }} questions</span>
+            </div>
+            <div class="requirement-item" *ngIf="finalExam?.max_attempts">
+              <i class="fas fa-redo"></i>
+              <span>Maximum {{ finalExam.max_attempts }} attempts</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="exam-action">
+          <button
+            class="btn-final-exam"
+            (click)="attemptFinalExam()"
+            [disabled]="!canTakeFinalExam">
+            <i class="fas fa-graduation-cap"></i>
+            <span>Attempt Final Exam</span>
+          </button>
+          <p class="exam-action-note">
+            Make sure you're ready before starting. Good luck!
+          </p>
         </div>
       </div>
     </div>
@@ -175,7 +258,10 @@
     </div>
 
   </div>
+  <!-- ✅ CLOSED content-main div -->
+
 </div>
+<!-- ✅ CLOSED module-layout div -->
 
 <!-- Loading State -->
 <div class="loading-container" *ngIf="isLoading">
