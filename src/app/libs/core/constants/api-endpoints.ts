@@ -109,6 +109,8 @@ export const API_ENDPOINTS = {
     // POST /api/student/attempts/<attempt_id>/complete
     QUIZ_COMPLETE: (attemptId: string) => `/api/student/attempts/${attemptId}/complete`,
 
+    QUIZ_ABANDON: (attemptId: string) => `/api/student/attempts/${attemptId}/abandon`,
+
     // GET /api/student/attempts/<attempt_id>/results
     QUIZ_RESULTS: (attemptId: string) => `/api/student/attempts/${attemptId}/results`,
 

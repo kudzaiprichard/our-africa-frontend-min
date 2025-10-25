@@ -553,6 +553,46 @@ export class StudentCourseService {
     );
   }
 
+  /**
+   * Abandon quiz attempt (when leaving page)
+   */
+  abandonQuiz(attemptId: string): Observable<any> {
+    this.isLoadingSubject.next(true);
+
+    return this.dataStrategy.execute<any>(
+      'abandonQuiz',
+      this.courseOnline,
+      this.courseOffline,
+      [attemptId],
+      {
+        queueIfOffline: true  // Will sync when back online
+      }
+    ).pipe(
+      finalize(() => this.isLoadingSubject.next(false))
+    );
+  }
+
+  /**
+   * Complete quiz with force submit option (for timeout)
+   */
+  completeQuizForced(attemptId: string, forceSubmit: boolean = false): Observable<CompleteQuizAttemptResponse> {
+    this.isLoadingSubject.next(true);
+
+    // Pass forceSubmit flag to backend
+    return this.dataStrategy.execute<CompleteQuizAttemptResponse>(
+      'completeQuiz',
+      this.courseOnline,
+      this.courseOffline,
+      [attemptId, forceSubmit],
+      {
+        saveToLocal: true,
+        queueIfOffline: true
+      }
+    ).pipe(
+      finalize(() => this.isLoadingSubject.next(false))
+    );
+  }
+
   // ========== LOADING STATE ==========
 
   /**

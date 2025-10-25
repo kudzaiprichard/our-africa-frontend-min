@@ -745,7 +745,7 @@ export class CourseOfflineProvider {
   /**
    * Complete and submit quiz attempt (offline - supported with approximate scoring)
    */
-  completeQuiz(attemptId: string): Observable<CompleteQuizAttemptResponse> {
+  completeQuiz(attemptId: string, forceSubmit: boolean = false): Observable<CompleteQuizAttemptResponse> {
     return from(
       this.tauriDb.getCurrentUser().then(async user => {
         const attempt = await this.tauriDb.getQuizAttemptById(attemptId);
@@ -757,7 +757,7 @@ export class CourseOfflineProvider {
         const scoreData = await this.tauriDb.calculateAttemptScore(attemptId);
 
         // ✅ Map the Rust response correctly
-        const score = scoreData.percentage || 0;  // Use 'percentage' from Rust
+        const score = scoreData.percentage || 0;
         const passed = score >= quiz.pass_mark_percentage;
 
         // ✅ Update attempt with correct score
@@ -768,7 +768,7 @@ export class CourseOfflineProvider {
           passed
         );
 
-        // ✅ Queue for sync
+        // ✅ Queue for sync (include forceSubmit flag)
         await this.tauriDb.addToSyncQueue(
           'update',
           'quiz_attempts',
@@ -777,7 +777,8 @@ export class CourseOfflineProvider {
             status: 'completed',
             score: score,
             passed: passed,
-            completed_at: new Date().toISOString()
+            completed_at: new Date().toISOString(),
+            force_submit: forceSubmit  // ✅ ADDED: Pass flag to backend
           }
         );
 
@@ -789,8 +790,13 @@ export class CourseOfflineProvider {
           completed_at: new Date().toISOString()
         };
 
+        // ✅ Adjust message based on forceSubmit
+        const message = forceSubmit
+          ? 'Quiz auto-submitted due to timeout (offline) - Will sync when online'
+          : 'Quiz completed (offline) - Final score will be validated when online';
+
         return {
-          message: 'Quiz completed (offline) - Final score will be validated when online',
+          message: message,
           attempt: completedAttempt,
           quiz,
           score: score,
@@ -804,6 +810,48 @@ export class CourseOfflineProvider {
       })
     );
   }
+
+
+  /**
+   * Abandon quiz attempt (offline - queued for sync)
+   */
+  abandonQuiz(attemptId: string): Observable<any> {
+    return from(
+      this.tauriDb.getCurrentUser().then(async user => {
+        // Get the attempt
+        const attempt = await this.tauriDb.getQuizAttemptById(attemptId);
+
+        // Update attempt status to abandoned
+        await this.tauriDb.updateQuizAttemptStatus(
+          attemptId,
+          'abandoned',
+          undefined,
+          undefined
+        );
+
+        // Queue for sync
+        await this.tauriDb.addToSyncQueue(
+          'update',
+          'quiz_attempts',
+          attemptId,
+          {
+            status: 'abandoned',
+            completed_at: new Date().toISOString()
+          }
+        );
+
+        return {
+          message: 'Quiz abandoned (offline) - Will sync when online',
+          attempt: {
+            ...attempt,
+            status: 'abandoned',
+            completed_at: new Date().toISOString()
+          }
+        };
+      })
+    );
+  }
+
 
   /**
    * Get detailed results of a quiz attempt (from local DB)

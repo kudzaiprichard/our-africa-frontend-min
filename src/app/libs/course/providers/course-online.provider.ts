@@ -280,12 +280,27 @@ export class CourseOnlineProvider {
   /**
    * Complete and submit quiz attempt
    */
-  completeQuiz(attemptId: string): Observable<CompleteQuizAttemptResponse> {
-    const request: CompleteQuizAttemptRequest = { attempt_id: attemptId };
+  completeQuiz(attemptId: string, forceSubmit: boolean = false): Observable<CompleteQuizAttemptResponse> {
+    const request: CompleteQuizAttemptRequest = {
+      attempt_id: attemptId,
+      force_submit: forceSubmit
+    };
 
     return this.baseHttpService.post<CompleteQuizAttemptResponse>(
       API_ENDPOINTS.STUDENT.QUIZ_COMPLETE(attemptId),
       request
+    ).pipe(
+      map(response => response.value!)
+    );
+  }
+
+  /**
+   * Abandon quiz attempt (when leaving page)
+   */
+  abandonQuiz(attemptId: string): Observable<any> {
+    return this.baseHttpService.post<any>(
+      API_ENDPOINTS.STUDENT.QUIZ_ABANDON(attemptId),
+      {}
     ).pipe(
       map(response => response.value!)
     );
