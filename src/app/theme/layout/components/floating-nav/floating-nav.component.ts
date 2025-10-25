@@ -18,25 +18,40 @@ export class FloatingNavComponent {
   @Output() navigate = new EventEmitter<NavigationItem>();
   @Output() focusModeChange = new EventEmitter<boolean>();
 
-  isNavCollapsed: boolean = false;
+  // Tooltip state
+  tooltipVisible: boolean = false;
+  tooltipText: string = '';
+  tooltipLeft: number = 0;
+  tooltipTop: number = 0;
 
-  // Navigation items - reversed order (bottom to top)
   navItems: NavigationItem[] = [
-    { page: 'courses/enrollments', label: 'Enrolled Courses', icon: 'fa-user-graduate' },
-    { page: 'certificates', label: 'Certificates', icon: 'fa-certificate' },
+    { page: 'dashboard', label: 'Dashboard', icon: 'fa-home' },
     { page: 'courses', label: 'Courses', icon: 'fa-book' },
-    { page: 'dashboard', label: 'Dashboard', icon: 'fa-home' }
+    { page: 'certificates', label: 'Certificates', icon: 'fa-certificate' },
+    { page: 'courses/enrollments', label: 'Enrolled Courses', icon: 'fa-user-graduate' }
   ];
 
-  toggleNav(): void {
-    this.isNavCollapsed = !this.isNavCollapsed;
-  }
-
   toggleFocusMode(): void {
+    this.hideTooltip(); // 👈 HIDE TOOLTIP WHEN TOGGLING FOCUS MODE
     this.focusModeChange.emit(!this.isFocusMode);
   }
 
   onNavigate(item: NavigationItem): void {
+    this.hideTooltip(); // 👈 HIDE TOOLTIP WHEN NAVIGATING
     this.navigate.emit(item);
+  }
+
+  showTooltip(event: MouseEvent, text: string): void {
+    const target = event.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+
+    this.tooltipText = text;
+    this.tooltipLeft = rect.right + 12; // 12px gap from nav item
+    this.tooltipTop = rect.top + (rect.height / 2); // Center vertically
+    this.tooltipVisible = true;
+  }
+
+  hideTooltip(): void {
+    this.tooltipVisible = false;
   }
 }

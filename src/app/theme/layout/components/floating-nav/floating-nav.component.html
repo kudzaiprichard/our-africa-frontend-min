@@ -1,33 +1,45 @@
 <!-- src/app/theme/layout/components/floating-nav/floating-nav.component.html -->
 
+<!-- Tooltip Element (Fixed Position, Outside Nav Container) -->
+<div
+  class="nav-tooltip"
+  [class.visible]="tooltipVisible"
+  [style.left.px]="tooltipLeft"
+  [style.top.px]="tooltipTop">
+  {{ tooltipText }}
+</div>
+
+<!-- Navigation Container -->
 <div class="nav-container" [class.focus-mode]="isFocusMode">
-  <div class="nav-items" [class.collapsed]="isNavCollapsed">
+
+  <!-- Navigation Items -->
+  <div class="nav-items">
     <div
-      *ngFor="let item of navItems; let i = index"
+      *ngFor="let item of navItems"
       class="nav-item-row"
       [class.active]="item.page === activePage"
-      [attr.data-page]="item.page"
-      [attr.data-icon]="item.icon"
       (click)="onNavigate(item)"
+      (mouseenter)="showTooltip($event, item.label)"
+      (mouseleave)="hideTooltip()"
     >
       <div class="nav-item">
         <i class="fas {{ item.icon }}"></i>
       </div>
-      <span class="nav-label">{{ item.label }}</span>
     </div>
   </div>
 
-  <!-- Bottom Row: Nav Toggle + Focus Mode Toggle -->
-  <div class="nav-bottom-row">
-    <div class="nav-toggle" [class.rotated]="isNavCollapsed" (click)="toggleNav()">
-      <i class="fas fa-bars"></i>
-    </div>
-    <div
-      class="focus-mode-toggle"
-      [class.active]="isFocusMode"
-      [title]="isFocusMode ? 'Exit Focus Mode' : 'Focus Mode'"
-      (click)="toggleFocusMode()"
-    >
+  <!-- Divider -->
+  <div class="nav-divider"></div>
+
+  <!-- Focus Mode Toggle at Bottom -->
+  <div
+    class="focus-mode-toggle"
+    [class.active]="isFocusMode"
+    (click)="toggleFocusMode()"
+    (mouseenter)="showTooltip($event, isFocusMode ? 'Exit Focus' : 'Focus Mode')"
+    (mouseleave)="hideTooltip()"
+  >
+    <div class="focus-icon">
       <i class="fas" [class.fa-eye]="!isFocusMode" [class.fa-eye-slash]="isFocusMode"></i>
     </div>
   </div>
