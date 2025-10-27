@@ -600,4 +600,232 @@ export class TauriDatabaseService {
       contentId
     });
   }
+
+  // ============================================================================
+  // OFFLINE SESSION COMMANDS (NEW)
+  // ============================================================================
+
+  /**
+   * Save offline session to database
+   */
+  async saveOfflineSession(sessionData: any): Promise<string> {
+    const dbPath = await this.ensurePath();
+    return invoke<string>('save_offline_session', {
+      dbPath,
+      sessionData: JSON.stringify(sessionData)
+    });
+  }
+
+  /**
+   * Get offline session by ID
+   */
+  async getOfflineSessionById(sessionId: string): Promise<any> {
+    const dbPath = await this.ensurePath();
+    const sessionJson = await invoke<string>('get_offline_session_by_id', {
+      dbPath,
+      sessionId
+    });
+    return JSON.parse(sessionJson);
+  }
+
+  /**
+   * Get all offline sessions for a student
+   */
+  async getStudentOfflineSessions(
+    studentId: string,
+    courseId?: string,
+    activeOnly: boolean = false
+  ): Promise<any[]> {
+    const dbPath = await this.ensurePath();
+    const sessionsJson = await invoke<string>('get_student_offline_sessions', {
+      dbPath,
+      studentId,
+      courseId: courseId || null,
+      activeOnly
+    });
+    return JSON.parse(sessionsJson);
+  }
+
+  /**
+   * Update offline session sync info (increment sync count, update last_synced_at)
+   */
+  async updateOfflineSessionSyncInfo(sessionId: string): Promise<string> {
+    const dbPath = await this.ensurePath();
+    return invoke<string>('update_offline_session_sync_info', {
+      dbPath,
+      sessionId
+    });
+  }
+
+  /**
+   * Soft delete offline session
+   */
+  async deleteOfflineSession(sessionId: string): Promise<string> {
+    const dbPath = await this.ensurePath();
+    return invoke<string>('delete_offline_session', {
+      dbPath,
+      sessionId
+    });
+  }
+
+  /**
+   * Hard delete offline session (permanent)
+   */
+  async hardDeleteOfflineSession(sessionId: string): Promise<string> {
+    const dbPath = await this.ensurePath();
+    return invoke<string>('hard_delete_offline_session', {
+      dbPath,
+      sessionId
+    });
+  }
+
+  /**
+   * Count active offline sessions
+   */
+  async countActiveOfflineSessions(studentId?: string): Promise<number> {
+    const dbPath = await this.ensurePath();
+    return invoke<number>('count_active_offline_sessions', {
+      dbPath,
+      studentId: studentId || null
+    });
+  }
+
+  /**
+   * Delete expired offline sessions
+   */
+  async deleteExpiredOfflineSessions(daysOld: number): Promise<number> {
+    const dbPath = await this.ensurePath();
+    return invoke<number>('delete_expired_offline_sessions', {
+      dbPath,
+      daysOld
+    });
+  }
+
+  // ============================================================================
+  // MEDIA CACHE COMMANDS (NEW)
+  // ============================================================================
+
+  /**
+   * Save media cache entry
+   */
+  async saveMediaCache(cacheData: any): Promise<string> {
+    const dbPath = await this.ensurePath();
+    return invoke<string>('save_media_cache', {
+      dbPath,
+      cacheData: JSON.stringify(cacheData)
+    });
+  }
+
+  /**
+   * Get all media cache entries for a course
+   */
+  async getMediaCacheByCourse(courseId: string): Promise<any[]> {
+    const dbPath = await this.ensurePath();
+    const cacheJson = await invoke<string>('get_media_cache_by_course', {
+      dbPath,
+      courseId
+    });
+    return JSON.parse(cacheJson);
+  }
+
+  /**
+   * Get media cache entry by media ID
+   */
+  async getMediaCacheByMediaId(mediaId: string): Promise<any> {
+    const dbPath = await this.ensurePath();
+    const cacheJson = await invoke<string>('get_media_cache_by_media_id', {
+      dbPath,
+      mediaId
+    });
+    return JSON.parse(cacheJson);
+  }
+
+  /**
+   * Update media download progress
+   */
+  async updateMediaDownloadProgress(
+    mediaId: string,
+    progress: number,
+    isDownloaded: boolean
+  ): Promise<string> {
+    const dbPath = await this.ensurePath();
+    return invoke<string>('update_media_download_progress', {
+      dbPath,
+      mediaId,
+      progress,
+      isDownloaded
+    });
+  }
+
+  /**
+   * Delete all media cache for a course
+   */
+  async deleteMediaCacheByCourse(courseId: string): Promise<string> {
+    const dbPath = await this.ensurePath();
+    return invoke<string>('delete_media_cache_by_course', {
+      dbPath,
+      courseId
+    });
+  }
+
+  // ============================================================================
+  // OFFLINE PROGRESS BATCH COMMANDS (NEW)
+  // ============================================================================
+
+  /**
+   * Save offline progress batch
+   */
+  async saveOfflineProgressBatch(batchData: any): Promise<string> {
+    const dbPath = await this.ensurePath();
+    return invoke<string>('save_offline_progress_batch', {
+      dbPath,
+      batchData: JSON.stringify(batchData)
+    });
+  }
+
+  /**
+   * Get unsynced progress batches
+   */
+  async getUnsyncedProgressBatches(limit?: number): Promise<any[]> {
+    const dbPath = await this.ensurePath();
+    const batchesJson = await invoke<string>('get_unsynced_progress_batches', {
+      dbPath,
+      limit: limit || null
+    });
+    return JSON.parse(batchesJson);
+  }
+
+  /**
+   * Mark progress batch as synced
+   */
+  async markBatchAsSynced(batchId: number): Promise<string> {
+    const dbPath = await this.ensurePath();
+    return invoke<string>('mark_batch_as_synced', {
+      dbPath,
+      batchId
+    });
+  }
+
+  /**
+   * Delete synced progress batches older than specified days
+   */
+  async deleteSyncedProgressBatches(daysOld: number): Promise<number> {
+    const dbPath = await this.ensurePath();
+    return invoke<number>('delete_synced_progress_batches', {
+      dbPath,
+      daysOld
+    });
+  }
+
+  /**
+   * Get offline session statistics
+   */
+  async getOfflineSessionStatistics(): Promise<any> {
+    const dbPath = await this.ensurePath();
+    const statsJson = await invoke<string>('get_offline_session_statistics', {
+      dbPath
+    });
+    return JSON.parse(statsJson);
+  }
+
 }

@@ -256,6 +256,63 @@ CREATE TABLE IF NOT EXISTS quiz_answers (
   );
 
 -- ============================================================================
+-- OFFLINE SESSIONS (NEW)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS offline_sessions (
+                                              id TEXT PRIMARY KEY,
+                                              student_id TEXT NOT NULL,
+                                              course_id TEXT NOT NULL,
+                                              downloaded_at TEXT NOT NULL,
+                                              expires_at TEXT NOT NULL,
+                                              package_version TEXT NOT NULL DEFAULT 'v1',
+                                              presigned_url_expiry_days INTEGER NOT NULL DEFAULT 7,
+                                              last_synced_at TEXT,
+                                              sync_count INTEGER DEFAULT 0,
+                                              is_deleted BOOLEAN DEFAULT 0,
+                                              created_at TEXT NOT NULL,
+                                              updated_at TEXT NOT NULL,
+                                              FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+  );
+
+-- ============================================================================
+-- MEDIA CACHE (NEW)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS media_cache (
+                                         id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                         media_id TEXT NOT NULL UNIQUE,
+                                         course_id TEXT NOT NULL,
+                                         filename TEXT NOT NULL,
+                                         media_type TEXT NOT NULL CHECK(media_type IN ('video', 'audio', 'image', 'document')),
+  local_file_path TEXT NOT NULL,
+  size_bytes INTEGER,
+  downloaded_at TEXT NOT NULL,
+  presigned_url TEXT,
+  presigned_url_expires_at TEXT,
+  is_downloaded BOOLEAN DEFAULT 0,
+  download_progress INTEGER DEFAULT 0,
+  FOREIGN KEY (media_id) REFERENCES course_media(id) ON DELETE CASCADE,
+  FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+  );
+
+-- ============================================================================
+-- OFFLINE PROGRESS BATCH (NEW)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS offline_progress_batch (
+                                                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                                    session_id TEXT NOT NULL,
+                                                    course_id TEXT NOT NULL,
+                                                    batch_data TEXT NOT NULL,
+                                                    created_at TEXT NOT NULL,
+                                                    synced BOOLEAN DEFAULT 0,
+                                                    synced_at TEXT,
+                                                    FOREIGN KEY (session_id) REFERENCES offline_sessions(id) ON DELETE CASCADE
+  );
+
+-- ============================================================================
 -- SYNC QUEUE
 -- ============================================================================
 
@@ -288,10 +345,20 @@ CREATE INDEX IF NOT EXISTS idx_quiz_attempts_quiz_id ON quiz_attempts(quiz_id);
 CREATE INDEX IF NOT EXISTS idx_quiz_answers_attempt_id ON quiz_answers(attempt_id);
 CREATE INDEX IF NOT EXISTS idx_sync_queue_table_record ON sync_queue(table_name, record_id);
 
+-- NEW INDEXES FOR OFFLINE TABLES
+CREATE INDEX IF NOT EXISTS idx_offline_sessions_student ON offline_sessions(student_id);
+CREATE INDEX IF NOT EXISTS idx_offline_sessions_course ON offline_sessions(course_id);
+CREATE INDEX IF NOT EXISTS idx_offline_sessions_deleted ON offline_sessions(is_deleted);
+CREATE INDEX IF NOT EXISTS idx_media_cache_course ON media_cache(course_id);
+CREATE INDEX IF NOT EXISTS idx_media_cache_downloaded ON media_cache(is_downloaded);
+CREATE INDEX IF NOT EXISTS idx_media_cache_media_id ON media_cache(media_id);
+CREATE INDEX IF NOT EXISTS idx_offline_progress_batch_session ON offline_progress_batch(session_id);
+CREATE INDEX IF NOT EXISTS idx_offline_progress_batch_synced ON offline_progress_batch(synced);
+
 -- ============================================================================
 -- INITIAL DATA
 -- ============================================================================
 
-INSERT OR IGNORE INTO app_metadata (key, value) VALUES ('schema_version', '2');
+INSERT OR IGNORE INTO app_metadata (key, value) VALUES ('schema_version', '3');
 INSERT OR IGNORE INTO app_metadata (key, value) VALUES ('last_full_sync', '');
 INSERT OR IGNORE INTO app_metadata (key, value) VALUES ('is_offline_mode', 'false');

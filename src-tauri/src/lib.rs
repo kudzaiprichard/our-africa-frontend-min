@@ -68,7 +68,7 @@ pub fn run() {
       commands::courses::get_all_courses,
       commands::courses::get_enrolled_courses,
       commands::courses::get_course_by_id,
-      commands::courses::save_course_media,  // ✅ ADDED: New command for course media
+      commands::courses::save_course_media,
       commands::courses::save_enrollment,
       commands::courses::get_user_enrollments,
       commands::courses::check_enrollment_exists,
@@ -95,7 +95,7 @@ pub fn run() {
       commands::progress::get_enrollment_progress,
       commands::progress::update_module_status,
       commands::progress::get_course_progress_summary,
-      // Content Progress 
+      // Content Progress
       commands::progress::save_content_progress,
       commands::progress::get_content_progress,
       commands::progress::get_content_progress_by_content_id,
@@ -110,6 +110,26 @@ pub fn run() {
       commands::progress::get_attempt_answers,
       commands::progress::calculate_attempt_score,
       commands::progress::get_best_quiz_score,
+
+      // ========== OFFLINE COMMANDS (NEW) ==========
+      commands::offline::save_offline_session,
+      commands::offline::get_offline_session_by_id,
+      commands::offline::get_student_offline_sessions,
+      commands::offline::update_offline_session_sync_info,
+      commands::offline::delete_offline_session,
+      commands::offline::hard_delete_offline_session,
+      commands::offline::count_active_offline_sessions,
+      commands::offline::delete_expired_offline_sessions,
+      commands::offline::save_media_cache,
+      commands::offline::get_media_cache_by_course,
+      commands::offline::get_media_cache_by_media_id,
+      commands::offline::update_media_download_progress,
+      commands::offline::delete_media_cache_by_course,
+      commands::offline::save_offline_progress_batch,
+      commands::offline::get_unsynced_progress_batches,
+      commands::offline::mark_batch_as_synced,
+      commands::offline::delete_synced_progress_batches,
+      commands::offline::get_offline_session_statistics,
 
       // ========== SYNC COMMANDS ==========
       commands::sync::add_to_sync_queue,
