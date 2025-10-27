@@ -155,6 +155,25 @@ export const API_ENDPOINTS = {
 
     // POST /api/student/certificates/course/<course_id>/claim - Claim certificate for completed course
     CERTIFICATE_CLAIM: (courseId: string) => `/api/student/certificates/course/${courseId}/claim`,
+
+    // =============================================================================
+    // OFFLINE LEARNING
+    // =============================================================================
+
+    // POST /api/student/courses/<course_id>/download-offline
+    DOWNLOAD_OFFLINE: (courseId: string) => `/api/student/courses/${courseId}/download-offline`,
+
+    // POST /api/student/courses/<course_id>/sync-offline
+    SYNC_OFFLINE: (courseId: string) => `/api/student/courses/${courseId}/sync-offline`,
+
+    // GET /api/student/offline-sessions/<session_id>/validate?course_id=<course_id>
+    VALIDATE_SESSION: (sessionId: string) => `/api/student/offline-sessions/${sessionId}/validate`,
+
+    // GET /api/student/offline-sessions/my-sessions
+    MY_OFFLINE_SESSIONS: '/api/student/offline-sessions/my-sessions',
+
+    // DELETE /api/student/offline-sessions/<session_id>
+    DELETE_SESSION: (sessionId: string) => `/api/student/offline-sessions/${sessionId}`,
   }
 
 } as const;
