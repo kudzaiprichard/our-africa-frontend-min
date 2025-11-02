@@ -189,21 +189,161 @@ pub fn save_content_blocks_bulk(db_path: String, contents_data: String) -> Resul
 
 #[tauri::command]
 pub fn get_module_content(db_path: String, module_id: String) -> Result<String, String> {
+    println!("🔍 ========================================");
+    println!("🔍 get_module_content CALLED");
+    println!("🔍 ========================================");
+    println!("🔍 module_id: {}", module_id);
+
     let conn = get_connection(&db_path)
         .map_err(|e| format!("Database connection failed: {}", e))?;
 
-    let mut stmt = conn
-        .prepare(
-            "SELECT json_object(
-                'id', id,
-                'module_id', module_id,
-                'title', title,
-                'content_data', json(content_data),
-                'order', order_index,
-                'created_at', created_at,
-                'updated_at', updated_at
-             ) FROM content_blocks WHERE module_id = ?1 ORDER BY order_index ASC",
+    // ✅ STEP 1: Get the course_id from module
+    println!("📦 STEP 1: Getting course_id from module...");
+    let course_id: String = conn
+        .query_row(
+            "SELECT course_id FROM modules WHERE id = ?1",
+            params![module_id],
+            |row| row.get(0),
         )
+        .map_err(|e| format!("Module not found: {}", e))?;
+    println!("📦 Found course_id: {}", course_id);
+
+    // ✅ STEP 2: Get the enrollment_id for this course
+    println!("👤 STEP 2: Getting enrollment_id...");
+    let enrollment_id: Result<String, rusqlite::Error> = conn.query_row(
+        "SELECT e.id FROM enrollments e
+         JOIN users u ON e.student_id = u.id
+         WHERE e.course_id = ?1
+         ORDER BY e.created_at DESC
+         LIMIT 1",
+        params![course_id],
+        |row| row.get(0),
+    );
+
+    if let Ok(ref enroll_id) = enrollment_id {
+        println!("👤 Found enrollment_id: {}", enroll_id);
+    } else {
+        println!("⚠️ No enrollment found for this course");
+    }
+
+    // ✅ STEP 3: Debug - Check ALL content_progress for this enrollment
+    if let Ok(ref enroll_id) = enrollment_id {
+        println!("🔍 STEP 3: Checking ALL content_progress for enrollment {}...", enroll_id);
+
+        let debug_stmt = conn.prepare(
+            "SELECT cp.id, cp.content_id, cp.is_completed, cp.completed_at, cb.module_id
+             FROM content_progress cp
+             LEFT JOIN content_blocks cb ON cp.content_id = cb.id
+             WHERE cp.enrollment_id = ?1
+             ORDER BY cp.updated_at DESC"
+        );
+
+        if let Ok(mut stmt) = debug_stmt {
+            let rows = stmt.query_map(params![enroll_id], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, Option<String>>(4)?
+                ))
+            });
+
+            if let Ok(rows) = rows {
+                let all_progress: Vec<_> = rows.filter_map(|r| r.ok()).collect();
+                println!("📊 Total content_progress records: {}", all_progress.len());
+
+                for (idx, (id, content_id, is_completed, completed_at, mod_id)) in all_progress.iter().enumerate() {
+                    println!("   Progress {}: id={}, content_id={}, module_id={:?}, is_completed={}, at={:?}",
+                        idx + 1, id, content_id, mod_id, is_completed, completed_at);
+                }
+            }
+        }
+
+        // ✅ STEP 4: Specifically check content_progress for THIS module
+        println!("🔍 STEP 4: Checking content_progress for THIS module {}...", module_id);
+
+        let module_progress_stmt = conn.prepare(
+            "SELECT cp.content_id, cp.is_completed, cp.completed_at
+             FROM content_progress cp
+             JOIN content_blocks cb ON cp.content_id = cb.id
+             WHERE cb.module_id = ?1 AND cp.enrollment_id = ?2"
+        );
+
+        if let Ok(mut stmt) = module_progress_stmt {
+            let rows = stmt.query_map(params![module_id, enroll_id], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, Option<String>>(2)?
+                ))
+            });
+
+            if let Ok(rows) = rows {
+                let module_progress: Vec<_> = rows.filter_map(|r| r.ok()).collect();
+                println!("📊 Content progress for THIS module: {}", module_progress.len());
+
+                for (content_id, is_completed, completed_at) in module_progress.iter() {
+                    println!("   📝 Content: {} | Completed: {} | At: {:?}",
+                        content_id, is_completed, completed_at);
+                }
+            }
+        }
+    }
+
+    // ✅ STEP 5: Query content blocks WITH progress (if enrollment exists)
+    println!("📚 STEP 5: Querying content blocks with progress...");
+
+    let query = if let Ok(ref enroll_id) = enrollment_id {
+        println!("📚 Using LEFT JOIN with enrollment_id: {}", enroll_id);
+        format!(
+            "SELECT json_object(
+                'id', cb.id,
+                'module_id', cb.module_id,
+                'title', cb.title,
+                'content_data', json(cb.content_data),
+                'order', cb.order_index,
+                'created_at', cb.created_at,
+                'updated_at', cb.updated_at,
+                'progress', CASE
+                    WHEN cp.id IS NOT NULL THEN json_object(
+                        'id', cp.id,
+                        'enrollment_id', cp.enrollment_id,
+                        'content_id', cp.content_id,
+                        'is_completed', cp.is_completed,
+                        'viewed_at', cp.viewed_at,
+                        'completed_at', cp.completed_at,
+                        'created_at', cp.created_at,
+                        'updated_at', cp.updated_at
+                    )
+                    ELSE NULL
+                END
+             ) FROM content_blocks cb
+             LEFT JOIN content_progress cp
+                ON cb.id = cp.content_id
+                AND cp.enrollment_id = '{}'
+             WHERE cb.module_id = ?1
+             ORDER BY cb.order_index ASC",
+            enroll_id
+        )
+    } else {
+        println!("📚 No enrollment - returning content without progress");
+        "SELECT json_object(
+            'id', cb.id,
+            'module_id', cb.module_id,
+            'title', cb.title,
+            'content_data', json(cb.content_data),
+            'order', cb.order_index,
+            'created_at', cb.created_at,
+            'updated_at', cb.updated_at,
+            'progress', NULL
+         ) FROM content_blocks cb
+         WHERE cb.module_id = ?1
+         ORDER BY cb.order_index ASC".to_string()
+    };
+
+    let mut stmt = conn
+        .prepare(&query)
         .map_err(|e| format!("Failed to prepare query: {}", e))?;
 
     let contents: Vec<String> = stmt
@@ -212,10 +352,31 @@ pub fn get_module_content(db_path: String, module_id: String) -> Result<String, 
         .filter_map(|r| r.ok())
         .collect();
 
+    println!("📚 Found {} content blocks", contents.len());
+
+    // ✅ STEP 6: Debug - Parse and log each content block
+    println!("🔍 STEP 6: Parsing returned content blocks...");
+    for (idx, content_json) in contents.iter().enumerate() {
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(content_json) {
+            let id = parsed["id"].as_str().unwrap_or("unknown");
+            let has_progress = !parsed["progress"].is_null();
+            let is_completed = parsed["progress"]["is_completed"].as_i64().unwrap_or(0);
+            let completed_at = parsed["progress"]["completed_at"].as_str();
+
+            println!("   Content {}: id={}, has_progress={}, is_completed={}, at={:?}",
+                idx + 1, id, has_progress, is_completed, completed_at);
+        }
+    }
+
     let contents_json = format!("[{}]", contents.join(","));
+
+    println!("✅ ========================================");
+    println!("✅ get_module_content COMPLETE");
+    println!("✅ Returning {} content blocks", contents.len());
+    println!("✅ ========================================");
+
     Ok(contents_json)
 }
-
 #[tauri::command]
 pub fn get_content_block_by_id(db_path: String, content_id: String) -> Result<String, String> {
     let conn = get_connection(&db_path)
