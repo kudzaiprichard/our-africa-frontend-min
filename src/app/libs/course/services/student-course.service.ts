@@ -1,10 +1,8 @@
+// src/app/libs/course/services/student-course.service.ts
+
 import { Injectable } from '@angular/core';
 import { Observable, BehaviorSubject } from 'rxjs';
 import { finalize } from 'rxjs/operators';
-
-
-// Strategy Service
-import { DataStrategyService } from '../../../theme/shared/services/data-strategy.service';
 
 // Course Management DTOs
 import {
@@ -38,17 +36,31 @@ import {
   GetCourseProgressResponse,
   GetAttemptQuestionsResponse,
   GetQuizQuestionsForOfflineResponse,
-  MarkContentAsViewedResponse, // ADDED
-  MarkContentAsCompletedResponse, // ADDED
-  GetModuleResumeDataResponse // ADDED
+  MarkContentAsViewedResponse,
+  MarkContentAsCompletedResponse,
+  GetModuleResumeDataResponse
 } from '../models/learning-progress.dtos.interface';
-import {CourseOnlineProvider} from '../providers/course-online.provider';
-import {CourseOfflineProvider} from '../providers/course-offline.provider';
+
+// Offline Learning DTOs
+import {
+  DownloadCourseForOfflineResponse,
+  SyncOfflineProgressResponse,
+  ValidateOfflineSessionResponse,
+  MyOfflineSessionsResponse
+} from '../models/offline-learning.dtos.interface';
+import { OfflineDownloadService } from './offline-download.service';
+import { CourseProvider } from '../providers/course.provider';
+import {ToastsService} from '../../../theme/shared';
 
 /**
- * Student Course Service - Clean business logic layer
- * Uses DataStrategyService for automatic online/offline handling
- * No more if/else offline checks!
+ * Student Course Service
+ * Clean business logic layer that delegates to providers
+ *
+ * Architecture:
+ * - Regular operations → CourseProvider (handles online/offline internally)
+ * - Download/Sync operations → OfflineDownloadService (explicit user actions)
+ *
+ * Key Principle: Simple delegation pattern, no complex logic here
  */
 @Injectable({
   providedIn: 'root'
@@ -58,542 +70,426 @@ export class StudentCourseService {
   private isLoadingSubject = new BehaviorSubject<boolean>(false);
 
   constructor(
-    private dataStrategy: DataStrategyService,
-    private courseOnline: CourseOnlineProvider,
-    private courseOffline: CourseOfflineProvider
+    private courseProvider: CourseProvider,
+    private offlineDownload: OfflineDownloadService,
+    private toasts: ToastsService
   ) {}
 
-  // ========== COURSE BROWSING & DISCOVERY ==========
+  // ============================================================================
+  // COURSE BROWSING & DISCOVERY
+  // ============================================================================
 
-  /**
-   * Get all published courses with pagination
-   */
   getPublishedCourses(page: number = 1, perPage: number = 20): Observable<GetAllCoursesResponse> {
     this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<GetAllCoursesResponse>(
-      'getPublishedCourses',
-      this.courseOnline,
-      this.courseOffline,
-      [page, perPage],
-      {
-        saveToLocal: true,  // Cache courses for offline viewing
-        readOnly: true      // No sync needed
-      }
-    ).pipe(
+    return this.courseProvider.getPublishedCourses(page, perPage).pipe(
       finalize(() => this.isLoadingSubject.next(false))
     );
   }
 
-  /**
-   * Get courses available for enrollment (meets prerequisites)
-   */
   getAvailableCourses(page: number = 1, perPage: number = 20): Observable<GetAvailableCoursesResponse> {
     this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<GetAvailableCoursesResponse>(
-      'getAvailableCourses',
-      this.courseOnline,
-      this.courseOffline,
-      [page, perPage],
-      {
-        saveToLocal: true,  // Cache available courses
-        readOnly: true      // No sync needed
-      }
-    ).pipe(
+    return this.courseProvider.getAvailableCourses(page, perPage).pipe(
       finalize(() => this.isLoadingSubject.next(false))
     );
   }
 
-  /**
-   * Get detailed information about a specific course
-   */
   getCourseDetails(courseId: string): Observable<GetCourseResponse> {
     this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<GetCourseResponse>(
-      'getCourseDetails',
-      this.courseOnline,
-      this.courseOffline,
-      [courseId],
-      {
-        saveToLocal: true,  // Cache course details
-        readOnly: true      // No sync needed
-      }
-    ).pipe(
+    return this.courseProvider.getCourseDetails(courseId).pipe(
       finalize(() => this.isLoadingSubject.next(false))
     );
   }
 
-  /**
-   * Get all modules in a course
-   */
   getCourseModules(courseId: string): Observable<GetCourseModulesResponse> {
     this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<GetCourseModulesResponse>(
-      'getCourseModules',
-      this.courseOnline,
-      this.courseOffline,
-      [courseId],
-      {
-        saveToLocal: true,  // Cache modules
-        readOnly: true      // No sync needed
-      }
-    ).pipe(
+    return this.courseProvider.getCourseModules(courseId).pipe(
       finalize(() => this.isLoadingSubject.next(false))
     );
   }
 
-  /**
-   * Check if student can enroll in a course
-   */
   checkEnrollmentEligibility(courseId: string): Observable<CheckEnrollmentEligibilityResponse> {
     this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<CheckEnrollmentEligibilityResponse>(
-      'checkEnrollmentEligibility',
-      this.courseOnline,
-      this.courseOffline,
-      [courseId],
-      {
-        readOnly: true  // No caching or sync needed
-      }
-    ).pipe(
+    return this.courseProvider.checkEnrollmentEligibility(courseId).pipe(
       finalize(() => this.isLoadingSubject.next(false))
     );
   }
 
-  // ========== ENROLLMENT MANAGEMENT ==========
+  // ============================================================================
+  // ENROLLMENT MANAGEMENT
+  // ============================================================================
 
-  /**
-   * Get all enrollments for current student
-   */
   getMyEnrollments(): Observable<GetStudentEnrollmentsResponse> {
     this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<GetStudentEnrollmentsResponse>(
-      'getMyEnrollments',
-      this.courseOnline,
-      this.courseOffline,
-      [],
-      {
-        saveToLocal: true,  // Cache enrollments for offline access
-        readOnly: true      // No sync needed
-      }
-    ).pipe(
+    return this.courseProvider.getMyEnrollments().pipe(
       finalize(() => this.isLoadingSubject.next(false))
     );
   }
 
-  /**
-   * Enroll in a course
-   * IMPORTANT: This downloads the entire course for offline use
-   */
   enrollInCourse(courseId: string): Observable<EnrollInCourseResponse> {
     this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<EnrollInCourseResponse>(
-      'enrollInCourse',
-      this.courseOnline,
-      this.courseOffline,
-      [courseId],
-      {
-        saveToLocal: true,        // Cache enrollment
-        queueIfOffline: true,     // Sync when online
-        downloadForOffline: true  // Download entire course content
-      }
-    ).pipe(
+    return this.courseProvider.enrollInCourse(courseId).pipe(
       finalize(() => this.isLoadingSubject.next(false))
     );
   }
 
-  /**
-   * Unenroll from a course
-   */
   unenrollFromCourse(courseId: string): Observable<UnenrollFromCourseResponse> {
     this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<UnenrollFromCourseResponse>(
-      'unenrollFromCourse',
-      this.courseOnline,
-      this.courseOffline,
-      [courseId],
-      {
-        queueIfOffline: true  // Sync when online
-      }
-    ).pipe(
+    return this.courseProvider.unenrollFromCourse(courseId).pipe(
       finalize(() => this.isLoadingSubject.next(false))
     );
   }
 
-  /**
-   * Get detailed enrollment information including progress
-   */
   getEnrollmentDetails(courseId: string): Observable<GetEnrollmentDetailsResponse> {
     this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<GetEnrollmentDetailsResponse>(
-      'getEnrollmentDetails',
-      this.courseOnline,
-      this.courseOffline,
-      [courseId],
-      {
-        saveToLocal: true,  // Cache enrollment details
-        readOnly: true      // No sync needed
-      }
-    ).pipe(
+    return this.courseProvider.getEnrollmentDetails(courseId).pipe(
       finalize(() => this.isLoadingSubject.next(false))
     );
   }
 
-  // ========== LEARNING & MODULE CONTENT ACCESS ==========
+  // ============================================================================
+  // LEARNING & MODULE CONTENT ACCESS
+  // ============================================================================
 
-  /**
-   * Get module content for learning
-   */
   getModuleContent(moduleId: string): Observable<GetModuleContentForStudentResponse> {
     this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<GetModuleContentForStudentResponse>(
-      'getModuleContent',
-      this.courseOnline,
-      this.courseOffline,
-      [moduleId],
-      {
-        saveToLocal: true,  // Cache module content
-        readOnly: true      // No sync needed
-      }
-    ).pipe(
+    return this.courseProvider.getModuleContent(moduleId).pipe(
       finalize(() => this.isLoadingSubject.next(false))
     );
   }
 
-  /**
-   * Mark module as started
-   */
   startModule(moduleId: string): Observable<MarkModuleAsStartedResponse> {
     this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<MarkModuleAsStartedResponse>(
-      'startModule',
-      this.courseOnline,
-      this.courseOffline,
-      [moduleId],
-      {
-        saveToLocal: true,     // Cache progress
-        queueIfOffline: true   // Sync when online
-      }
-    ).pipe(
+    return this.courseProvider.startModule(moduleId).pipe(
       finalize(() => this.isLoadingSubject.next(false))
     );
   }
 
-  /**
-   * Mark module as completed
-   */
   completeModule(moduleId: string): Observable<MarkModuleAsCompletedResponse> {
     this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<MarkModuleAsCompletedResponse>(
-      'completeModule',
-      this.courseOnline,
-      this.courseOffline,
-      [moduleId],
-      {
-        saveToLocal: true,     // Cache progress
-        queueIfOffline: true   // Sync when online
-      }
-    ).pipe(
+    return this.courseProvider.completeModule(moduleId).pipe(
       finalize(() => this.isLoadingSubject.next(false))
     );
   }
 
-  // ========== QUIZ & EXAM MANAGEMENT ==========
+  // ============================================================================
+  // QUIZ & EXAM MANAGEMENT
+  // ============================================================================
 
-  /**
-   * Get questions for an existing quiz attempt (for resuming)
-   */
   getAttemptQuestions(attemptId: string): Observable<GetAttemptQuestionsResponse> {
     this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<GetAttemptQuestionsResponse>(
-      'getAttemptQuestions',
-      this.courseOnline,
-      this.courseOffline,
-      [attemptId],
-      {
-        readOnly: true  // No caching or sync needed
-      }
-    ).pipe(
+    return this.courseProvider.getAttemptQuestions(attemptId).pipe(
       finalize(() => this.isLoadingSubject.next(false))
     );
   }
 
-  /**
-   * Get all attempts for a quiz
-   */
   getQuizAttempts(quizId: string): Observable<GetQuizAttemptsResponse> {
     this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<GetQuizAttemptsResponse>(
-      'getQuizAttempts',
-      this.courseOnline,
-      this.courseOffline,
-      [quizId],
-      {
-        saveToLocal: true,  // Cache attempts
-        readOnly: true      // No sync needed
-      }
-    ).pipe(
+    return this.courseProvider.getQuizAttempts(quizId).pipe(
       finalize(() => this.isLoadingSubject.next(false))
     );
   }
 
-  /**
-   * Get quiz questions for offline use
-   */
   getQuizQuestions(quizId: string): Observable<GetQuizQuestionsForOfflineResponse> {
     this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<GetQuizQuestionsForOfflineResponse>(
-      'getQuizQuestions',
-      this.courseOnline,
-      this.courseOffline,
-      [quizId],
-      {
-        saveToLocal: true,  // Cache questions for offline
-        readOnly: true      // No sync needed
-      }
-    ).pipe(
+    return this.courseProvider.getQuizQuestions(quizId).pipe(
       finalize(() => this.isLoadingSubject.next(false))
     );
   }
 
-  /**
-   * Start a new quiz attempt
-   */
   startQuiz(quizId: string): Observable<StartQuizAttemptResponse> {
     this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<StartQuizAttemptResponse>(
-      'startQuiz',
-      this.courseOnline,
-      this.courseOffline,
-      [quizId],
-      {
-        saveToLocal: true,     // Cache attempt and questions
-        queueIfOffline: true   // Sync when online
-      }
-    ).pipe(
+    return this.courseProvider.startQuiz(quizId).pipe(
       finalize(() => this.isLoadingSubject.next(false))
     );
   }
 
-  /**
-   * Submit answer for a quiz question
-   */
   submitQuizAnswer(attemptId: string, request: SubmitQuizAnswerRequest): Observable<SubmitQuizAnswerResponse> {
     this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<SubmitQuizAnswerResponse>(
-      'submitQuizAnswer',
-      this.courseOnline,
-      this.courseOffline,
-      [attemptId, request],
-      {
-        saveToLocal: true,     // Cache answer
-        queueIfOffline: true   // Sync when online
-      }
-    ).pipe(
+    return this.courseProvider.submitQuizAnswer(attemptId, request).pipe(
       finalize(() => this.isLoadingSubject.next(false))
     );
   }
 
-  /**
-   * Complete and submit quiz attempt
-   */
-  completeQuiz(attemptId: string): Observable<CompleteQuizAttemptResponse> {
+  completeQuiz(attemptId: string, forceSubmit: boolean = false): Observable<CompleteQuizAttemptResponse> {
     this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<CompleteQuizAttemptResponse>(
-      'completeQuiz',
-      this.courseOnline,
-      this.courseOffline,
-      [attemptId],
-      {
-        saveToLocal: true,     // Cache final result
-        queueIfOffline: true   // Sync when online
-      }
-    ).pipe(
+    return this.courseProvider.completeQuiz(attemptId, forceSubmit).pipe(
       finalize(() => this.isLoadingSubject.next(false))
     );
   }
 
-  /**
-   * Get detailed results of a quiz attempt
-   */
-  getQuizResults(attemptId: string): Observable<GetQuizResultsResponse> {
-    this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<GetQuizResultsResponse>(
-      'getQuizResults',
-      this.courseOnline,
-      this.courseOffline,
-      [attemptId],
-      {
-        readOnly: true  // No caching or sync needed
-      }
-    ).pipe(
-      finalize(() => this.isLoadingSubject.next(false))
-    );
-  }
-
-  // ========== PROGRESS TRACKING & DASHBOARD ==========
-
-  /**
-   * Get student dashboard with all enrollments and progress
-   */
-  getStudentDashboard(): Observable<GetStudentDashboardResponse> {
-    this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<GetStudentDashboardResponse>(
-      'getStudentDashboard',
-      this.courseOnline,
-      this.courseOffline,
-      [],
-      {
-        readOnly: true  // No caching - dynamic data
-      }
-    ).pipe(
-      finalize(() => this.isLoadingSubject.next(false))
-    );
-  }
-
-  /**
-   * Get detailed progress for a specific course
-   */
-  getCourseProgress(courseId: string): Observable<GetCourseProgressResponse> {
-    this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<GetCourseProgressResponse>(
-      'getCourseProgress',
-      this.courseOnline,
-      this.courseOffline,
-      [courseId],
-      {
-        readOnly: true  // No caching - dynamic data
-      }
-    ).pipe(
-      finalize(() => this.isLoadingSubject.next(false))
-    );
-  }
-
-  // ========== CONTENT PROGRESS TRACKING (NEW SECTION - ADDED) ==========
-
-  /**
-   * Mark a content block as viewed
-   * Tracks when student views content for analytics and progress
-   */
-  markContentAsViewed(contentId: string): Observable<MarkContentAsViewedResponse> {
-    this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<MarkContentAsViewedResponse>(
-      'markContentAsViewed',
-      this.courseOnline,
-      this.courseOffline,
-      [contentId],
-      {
-        saveToLocal: true,     // Cache progress locally
-        queueIfOffline: true   // Sync when online
-      }
-    ).pipe(
-      finalize(() => this.isLoadingSubject.next(false))
-    );
-  }
-
-  /**
-   * Mark a content block as completed
-   * May trigger auto-completion of module if all content done and quiz passed
-   */
-  markContentAsCompleted(contentId: string): Observable<MarkContentAsCompletedResponse> {
-    this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<MarkContentAsCompletedResponse>(
-      'markContentAsCompleted',
-      this.courseOnline,
-      this.courseOffline,
-      [contentId],
-      {
-        saveToLocal: true,     // Cache progress locally
-        queueIfOffline: true   // Sync when online
-      }
-    ).pipe(
-      finalize(() => this.isLoadingSubject.next(false))
-    );
-  }
-
-  /**
-   * Get resume data for a module
-   * Returns where student should continue learning (next incomplete content)
-   */
-  getModuleResumeData(moduleId: string): Observable<GetModuleResumeDataResponse> {
-    this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<GetModuleResumeDataResponse>(
-      'getModuleResumeData',
-      this.courseOnline,
-      this.courseOffline,
-      [moduleId],
-      {
-        readOnly: true  // No caching or sync needed
-      }
-    ).pipe(
-      finalize(() => this.isLoadingSubject.next(false))
-    );
-  }
-
-  /**
-   * Abandon quiz attempt (when leaving page)
-   */
   abandonQuiz(attemptId: string): Observable<any> {
     this.isLoadingSubject.next(true);
-
-    return this.dataStrategy.execute<any>(
-      'abandonQuiz',
-      this.courseOnline,
-      this.courseOffline,
-      [attemptId],
-      {
-        queueIfOffline: true  // Will sync when back online
-      }
-    ).pipe(
+    return this.courseProvider.abandonQuiz(attemptId).pipe(
       finalize(() => this.isLoadingSubject.next(false))
     );
+  }
+
+  getQuizResults(attemptId: string): Observable<GetQuizResultsResponse> {
+    this.isLoadingSubject.next(true);
+    return this.courseProvider.getQuizResults(attemptId).pipe(
+      finalize(() => this.isLoadingSubject.next(false))
+    );
+  }
+
+  // ============================================================================
+  // PROGRESS TRACKING & DASHBOARD
+  // ============================================================================
+
+  getStudentDashboard(): Observable<GetStudentDashboardResponse> {
+    this.isLoadingSubject.next(true);
+    return this.courseProvider.getStudentDashboard().pipe(
+      finalize(() => this.isLoadingSubject.next(false))
+    );
+  }
+
+  getCourseProgress(courseId: string): Observable<GetCourseProgressResponse> {
+    this.isLoadingSubject.next(true);
+    return this.courseProvider.getCourseProgress(courseId).pipe(
+      finalize(() => this.isLoadingSubject.next(false))
+    );
+  }
+
+  // ============================================================================
+  // CONTENT PROGRESS TRACKING
+  // ============================================================================
+
+  markContentAsViewed(contentId: string): Observable<MarkContentAsViewedResponse> {
+    this.isLoadingSubject.next(true);
+    return this.courseProvider.markContentAsViewed(contentId).pipe(
+      finalize(() => this.isLoadingSubject.next(false))
+    );
+  }
+
+  markContentAsCompleted(contentId: string): Observable<MarkContentAsCompletedResponse> {
+    this.isLoadingSubject.next(true);
+    return this.courseProvider.markContentAsCompleted(contentId).pipe(
+      finalize(() => this.isLoadingSubject.next(false))
+    );
+  }
+
+  getModuleResumeData(moduleId: string): Observable<GetModuleResumeDataResponse> {
+    this.isLoadingSubject.next(true);
+    return this.courseProvider.getModuleResumeData(moduleId).pipe(
+      finalize(() => this.isLoadingSubject.next(false))
+    );
+  }
+
+  // ============================================================================
+  // OFFLINE LEARNING (Explicit User Actions)
+  // ============================================================================
+
+  /**
+   * Download course for offline use (explicit user action)
+   * Downloads complete course package including all content and media files
+   * Shows unified progress for both structure and media downloads
+   */
+  async downloadCourseForOffline(
+    courseId: string,
+    presignedUrlExpiryDays: number = 7
+  ): Promise<DownloadCourseForOfflineResponse> {
+    this.isLoadingSubject.next(true);
+
+    try {
+      this.toasts.info('Starting course download for offline access...');
+      return await this.offlineDownload.downloadCourseForOffline(
+        courseId,
+        presignedUrlExpiryDays
+      );
+    } catch (error) {
+      this.toasts.error('Unable to download course for offline use.');
+      throw error;
+    } finally {
+      this.isLoadingSubject.next(false);
+    }
   }
 
   /**
-   * Complete quiz with force submit option (for timeout)
+   * Sync offline progress back to server (explicit user action)
    */
-  completeQuizForced(attemptId: string, forceSubmit: boolean = false): Observable<CompleteQuizAttemptResponse> {
+  async syncOfflineProgress(
+    courseId: string,
+    sessionId: string,
+    progressData: any
+  ): Promise<SyncOfflineProgressResponse> {
     this.isLoadingSubject.next(true);
 
-    // Pass forceSubmit flag to backend
-    return this.dataStrategy.execute<CompleteQuizAttemptResponse>(
-      'completeQuiz',
-      this.courseOnline,
-      this.courseOffline,
-      [attemptId, forceSubmit],
-      {
-        saveToLocal: true,
-        queueIfOffline: true
-      }
-    ).pipe(
-      finalize(() => this.isLoadingSubject.next(false))
-    );
+    try {
+      this.toasts.info('Syncing your progress...');
+      const result = await this.offlineDownload.syncOfflineProgress(
+        courseId,
+        sessionId,
+        progressData
+      );
+      this.toasts.success('Progress synced successfully!');
+      return result;
+    } catch (error) {
+      this.toasts.error('Unable to sync your progress. Please try again.');
+      throw error;
+    } finally {
+      this.isLoadingSubject.next(false);
+    }
   }
 
-  // ========== LOADING STATE ==========
+  /**
+   * Validate offline session
+   */
+  async validateOfflineSession(
+    sessionId: string,
+    courseId: string
+  ): Promise<ValidateOfflineSessionResponse> {
+    try {
+      return await this.offlineDownload.validateSession(sessionId, courseId);
+    } catch (error) {
+      this.toasts.error('Unable to validate offline session.');
+      throw error;
+    }
+  }
+
+  /**
+   * Get my offline sessions
+   */
+  async getMyOfflineSessions(
+    courseId?: string,
+    activeOnly: boolean = false
+  ): Promise<MyOfflineSessionsResponse> {
+    try {
+      return await this.offlineDownload.getMySessions(courseId, activeOnly);
+    } catch (error) {
+      this.toasts.error('Unable to load offline sessions.');
+      throw error;
+    }
+  }
+
+  /**
+   * Delete offline session (explicit user action)
+   */
+  async deleteOfflineSession(sessionId: string): Promise<void> {
+    this.isLoadingSubject.next(true);
+    try {
+      await this.offlineDownload.deleteSession(sessionId);
+      this.toasts.success('Offline session deleted.');
+    } catch (error) {
+      this.toasts.error('Unable to delete offline session.');
+      throw error;
+    } finally {
+      this.isLoadingSubject.next(false);
+    }
+  }
+
+  /**
+   * Delete offline session with all media (explicit user action)
+   */
+  async deleteOfflineSessionWithMedia(sessionId: string, courseId: string): Promise<void> {
+    this.isLoadingSubject.next(true);
+    try {
+      await this.offlineDownload.deleteSessionWithData(sessionId, courseId);
+      this.toasts.success('Offline session and downloaded content deleted.');
+    } catch (error) {
+      this.toasts.error('Unable to delete offline session and content.');
+      throw error;
+    } finally {
+      this.isLoadingSubject.next(false);
+    }
+  }
+
+  /**
+   * Check if course is downloaded for offline
+   */
+  async isCourseDownloadedForOffline(courseId: string): Promise<boolean> {
+    try {
+      return await this.offlineDownload.isCourseDownloaded(courseId);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Get unified download progress observable
+   * Includes both course structure and media download progress in a single stream
+   *
+   * Progress object structure:
+   * {
+   *   courseId: string | null,
+   *   status: 'idle' | 'downloading' | 'completed' | 'error',
+   *   phase: 'idle' | 'fetching' | 'saving_structure' | 'downloading_media' | 'verifying' | 'completed' | 'error',
+   *   totalSteps: number,
+   *   completedSteps: number,
+   *   currentStep: string,
+   *   percentage: number (0-100),
+   *   mediaProgress: {
+   *     totalFiles: number,
+   *     downloadedFiles: number,
+   *     failedFiles: number,
+   *     currentFile: string | null,
+   *     currentFileProgress: number (0-100)
+   *   }
+   * }
+   */
+  getDownloadProgress$(): Observable<any> {
+    return this.offlineDownload.downloadProgress$;
+  }
+
+  /**
+   * Cancel ongoing download (explicit user action)
+   */
+  cancelDownload(): void {
+    this.offlineDownload.cancelDownload();
+    this.toasts.info('Download cancelled.');
+  }
+
+  /**
+   * Get offline session statistics
+   */
+  async getOfflineStatistics(): Promise<any> {
+    try {
+      return await this.offlineDownload.getSessionStatistics();
+    } catch (error) {
+      this.toasts.error('Unable to load offline statistics.');
+      throw error;
+    }
+  }
+
+  // ============================================================================
+  // MEDIA CACHE UTILITIES
+  // ============================================================================
+
+  /**
+   * Get cached media files for a course
+   */
+  async getCachedMedia(courseId: string): Promise<any[]> {
+    try {
+      return await this.offlineDownload.getCachedMedia(courseId);
+    } catch (error) {
+      return [];
+    }
+  }
+
+  /**
+   * Get local file path for a media file
+   * Returns null if media is not downloaded
+   */
+  async getLocalMediaPath(mediaId: string): Promise<string | null> {
+    try {
+      return await this.offlineDownload.getLocalFilePath(mediaId);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Check if specific media file is downloaded
+   */
+  async isMediaDownloaded(mediaId: string): Promise<boolean> {
+    try {
+      return await this.offlineDownload.isMediaDownloaded(mediaId);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  // ============================================================================
+  // LOADING STATE
+  // ============================================================================
 
   /**
    * Get loading status observable
