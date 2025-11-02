@@ -580,11 +580,10 @@ export class TauriDatabaseService {
   /**
    * Mark content as viewed (helper method)
    */
-  async markContentAsViewed(enrollmentId: string, contentId: string): Promise<string> {
+  async markContentAsViewed(contentId: string): Promise<string> {
     const dbPath = await this.ensurePath();
     return invoke<string>('mark_content_as_viewed', {
       dbPath,
-      enrollmentId,
       contentId
     });
   }
@@ -592,11 +591,10 @@ export class TauriDatabaseService {
   /**
    * Mark content as completed (helper method)
    */
-  async markContentAsCompleted(enrollmentId: string, contentId: string): Promise<string> {
+  async markContentAsCompleted(contentId: string): Promise<string> {
     const dbPath = await this.ensurePath();
     return invoke<string>('mark_content_as_completed', {
       dbPath,
-      enrollmentId,
       contentId
     });
   }
