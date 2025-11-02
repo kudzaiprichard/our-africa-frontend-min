@@ -1,9 +1,8 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, interval, Subscription } from 'rxjs';
-import { filter, switchMap, tap } from 'rxjs/operators';
+import { BehaviorSubject } from 'rxjs';
 import { ConnectivityService } from './connectivity.service';
 import { TauriDatabaseService } from './tauri-database.service';
-import {BaseHttpService} from '../../../libs/core';
+import { BaseHttpService } from '../../../libs/core';
 
 interface SyncQueueItem {
   id: number;
@@ -15,13 +14,28 @@ interface SyncQueueItem {
   error_message?: string;
 }
 
+interface OfflineProgressBatch {
+  id: number;
+  session_id: string;
+  course_id: string;
+  batch_data: any;
+  created_at: string;
+  synced: boolean;
+  synced_at?: string;
+}
+
+/**
+ * Offline Sync Service - Handles MANUAL synchronization of offline progress
+ *
+ * IMPORTANT: Auto-sync has been DISABLED. All syncing must be explicitly triggered by the user.
+ * This gives users full control over when their progress is synchronized to the server.
+ */
 @Injectable({
   providedIn: 'root'
 })
 export class OfflineSyncService {
   private isSyncingSubject = new BehaviorSubject<boolean>(false);
   private syncProgressSubject = new BehaviorSubject<number>(0);
-  private syncSubscription?: Subscription;
 
   public isSyncing$ = this.isSyncingSubject.asObservable();
   public syncProgress$ = this.syncProgressSubject.asObservable();
@@ -31,36 +45,18 @@ export class OfflineSyncService {
     private tauriDb: TauriDatabaseService,
     private baseHttp: BaseHttpService
   ) {
-    this.initializeAutoSync();
+    // ✅ NO AUTO-SYNC - User controls when to sync
+    console.log('ℹ️ OfflineSyncService initialized - Auto-sync is DISABLED');
+    console.log('💡 Users must manually trigger sync via syncAll() method');
   }
 
-  /**
-   * Initialize automatic sync when connection is restored
-   */
-  private initializeAutoSync(): void {
-    // Listen for connectivity changes
-    this.connectivityService.getOnlineStatus()
-      .pipe(
-        filter(isOnline => isOnline), // Only trigger when going online
-        tap(() => console.log('🔄 Connection restored, starting auto-sync...'))
-      )
-      .subscribe(() => {
-        this.syncAll();
-      });
-
-    // Periodic sync every 5 minutes when online
-    interval(5 * 60 * 1000) // 5 minutes
-      .pipe(
-        filter(() => this.connectivityService.isOnline()),
-        filter(() => !this.isSyncingSubject.value)
-      )
-      .subscribe(() => {
-        this.syncAll();
-      });
-  }
+  // ============================================================================
+  // MANUAL SYNC ORCHESTRATION
+  // ============================================================================
 
   /**
-   * Manually trigger sync
+   * Manually trigger full sync (called by user action only)
+   * Syncs all offline progress batches to the server
    */
   async syncAll(): Promise<void> {
     if (this.isSyncingSubject.value) {
@@ -70,150 +66,323 @@ export class OfflineSyncService {
 
     if (this.connectivityService.isOffline()) {
       console.log('📵 Cannot sync while offline');
-      return;
+      throw new Error('Cannot sync while offline. Please check your internet connection.');
     }
 
     this.isSyncingSubject.next(true);
     this.syncProgressSubject.next(0);
 
     try {
-      const queueItems = await this.tauriDb.getSyncQueue(100);
-      console.log(`📤 Syncing ${queueItems.length} items...`);
+      console.log('🔄 Starting manual sync...');
 
-      if (queueItems.length === 0) {
-        console.log('✅ Sync queue is empty');
-        return;
-      }
+      // Sync offline progress batches using /sync-offline endpoint
+      const batchResult = await this.syncOfflineProgressBatches();
+      console.log(`✅ Progress batch sync: ${batchResult.syncedBatches}/${batchResult.totalBatches} succeeded`);
 
-      const totalItems = queueItems.length;
-      let syncedCount = 0;
-      const failedItems: number[] = [];
-
-      for (const item of queueItems) {
-        try {
-          await this.syncItem(item);
-          await this.tauriDb.removeFromSyncQueue(item.id);
-          syncedCount++;
-        } catch (error: any) {
-          console.error(`❌ Failed to sync item ${item.id}:`, error);
-          failedItems.push(item.id);
-
-          // Update retry count
-          await this.tauriDb.updateSyncQueueRetry(
-            item.id,
-            error.message || 'Unknown error'
-          );
-        }
-
-        // Update progress
-        const progress = Math.round((syncedCount / totalItems) * 100);
-        this.syncProgressSubject.next(progress);
-      }
-
-      console.log(`✅ Sync completed: ${syncedCount}/${totalItems} succeeded`);
-
-      if (failedItems.length > 0) {
-        console.warn(`⚠️ ${failedItems.length} items failed to sync`);
+      if (batchResult.failedBatches > 0) {
+        console.warn(`⚠️ ${batchResult.failedBatches} batches failed to sync`);
       }
 
       // Update last sync time
       await this.tauriDb.setLastSyncTime();
 
+      this.syncProgressSubject.next(100);
+      console.log('✅ Manual sync completed successfully');
+
     } catch (error) {
       console.error('❌ Sync failed:', error);
+      throw error;
     } finally {
       this.isSyncingSubject.next(false);
       this.syncProgressSubject.next(0);
     }
   }
 
+  // ============================================================================
+  // OFFLINE PROGRESS BATCH SYNC
+  // ============================================================================
+
   /**
-   * Sync a single queue item to the API
+   * Sync all unsynced progress batches using the /sync-offline endpoint
    */
-  private async syncItem(item: SyncQueueItem): Promise<void> {
-    const { operation_type, table_name, record_id, data } = item;
-
-    console.log(`🔄 Syncing ${operation_type} on ${table_name} (${record_id})`);
-
-    // Map table names to API endpoints
-    const endpoint = this.getEndpointForTable(table_name, operation_type, record_id, data);
-
-    if (!endpoint) {
-      throw new Error(`No endpoint mapping for table: ${table_name}`);
+  async syncOfflineProgressBatches(): Promise<SyncBatchResult> {
+    if (this.connectivityService.isOffline()) {
+      console.log('📵 Cannot sync progress batches while offline');
+      return {
+        totalBatches: 0,
+        syncedBatches: 0,
+        failedBatches: 0,
+        failedBatchIds: []
+      };
     }
 
-    // Execute the appropriate HTTP request
-    switch (operation_type) {
-      case 'create':
-        await this.baseHttp.post(endpoint, data).toPromise();
-        break;
-      case 'update':
-        await this.baseHttp.put(endpoint, data).toPromise();
-        break;
-      case 'delete':
-        await this.baseHttp.delete(endpoint).toPromise();
-        break;
+    try {
+      const batches = await this.tauriDb.getUnsyncedProgressBatches(50);
+      console.log(`📤 Syncing ${batches.length} progress batches...`);
+
+      if (batches.length === 0) {
+        console.log('✅ No progress batches to sync');
+        return {
+          totalBatches: 0,
+          syncedBatches: 0,
+          failedBatches: 0,
+          failedBatchIds: []
+        };
+      }
+
+      const result: SyncBatchResult = {
+        totalBatches: batches.length,
+        syncedBatches: 0,
+        failedBatches: 0,
+        failedBatchIds: []
+      };
+
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i] as OfflineProgressBatch;
+
+        try {
+          const endpoint = `/api/student/courses/${batch.course_id}/sync-offline`;
+
+          const request = {
+            course_id: batch.course_id,
+            offline_session_id: batch.session_id,
+            downloaded_at: batch.created_at,
+            synced_at: new Date().toISOString(),
+            progress_data: batch.batch_data
+          };
+
+          console.log(`🔄 Syncing batch ${i + 1}/${batches.length} for course ${batch.course_id}...`);
+
+          await this.baseHttp.post(endpoint, request).toPromise();
+
+          await this.tauriDb.markBatchAsSynced(batch.id);
+          result.syncedBatches++;
+
+          console.log(`✅ Progress batch ${batch.id} synced successfully`);
+
+          const progress = Math.round(((i + 1) / batches.length) * 100);
+          this.syncProgressSubject.next(progress);
+
+        } catch (error: any) {
+          console.error(`❌ Failed to sync batch ${batch.id}:`, error);
+          result.failedBatches++;
+          result.failedBatchIds.push(batch.id);
+
+          if (error.details && Array.isArray(error.details)) {
+            console.error(`   Error details: ${error.details.join(', ')}`);
+          }
+        }
+      }
+
+      console.log(`✅ Progress batch sync completed: ${result.syncedBatches}/${result.totalBatches} succeeded`);
+      return result;
+
+    } catch (error) {
+      console.error('❌ Failed to sync progress batches:', error);
+      throw error;
     }
   }
 
   /**
-   * Map table names to API endpoints
+   * Sync a single progress batch by ID
    */
-  private getEndpointForTable(
-    tableName: string,
-    operationType: string,
-    recordId: string,
-    data: any
-  ): string | null {
-    // Map your table names to actual API endpoints
-    switch (tableName) {
-      case 'module_progress':
-        if (operationType === 'create' && data.status === 'in_progress') {
-          return `/api/student/modules/${data.module_id}/start`;
-        } else if (operationType === 'create' && data.status === 'completed') {
-          return `/api/student/modules/${data.module_id}/complete`;
-        }
-        return null;
+  async syncSingleBatch(batchId: number): Promise<boolean> {
+    if (this.connectivityService.isOffline()) {
+      console.log('📵 Cannot sync while offline');
+      return false;
+    }
 
-      case 'quiz_attempts':
-        if (operationType === 'create') {
-          return `/api/student/quizzes/${data.quiz_id}/start`;
-        } else if (operationType === 'update' && data.status === 'completed') {
-          return `/api/student/attempts/${recordId}/complete`;
-        }
-        return null;
+    try {
+      const batches = await this.tauriDb.getUnsyncedProgressBatches(1000);
+      const batch = batches.find((b: OfflineProgressBatch) => b.id === batchId);
 
-      case 'quiz_answers':
-        if (operationType === 'create') {
-          return `/api/student/attempts/${data.attempt_id}/answer`;
-        }
-        return null;
+      if (!batch) {
+        console.warn(`⚠️ Batch ${batchId} not found or already synced`);
+        return false;
+      }
 
-      case 'enrollments':
-        if (operationType === 'create') {
-          return `/api/student/enrollments/${data.course_id}`;
-        } else if (operationType === 'delete') {
-          return `/api/student/enrollments/${data.course_id}`;
-        }
-        return null;
+      const endpoint = `/api/student/courses/${batch.course_id}/sync-offline`;
 
-      default:
-        return null;
+      const request = {
+        course_id: batch.course_id,
+        offline_session_id: batch.session_id,
+        downloaded_at: batch.created_at,
+        synced_at: new Date().toISOString(),
+        progress_data: batch.batch_data
+      };
+
+      await this.baseHttp.post(endpoint, request).toPromise();
+      await this.tauriDb.markBatchAsSynced(batch.id);
+
+      console.log(`✅ Batch ${batchId} synced successfully`);
+      return true;
+
+    } catch (error) {
+      console.error(`❌ Failed to sync batch ${batchId}:`, error);
+      return false;
+    }
+  }
+
+  // ============================================================================
+  // CLEANUP & MAINTENANCE
+  // ============================================================================
+
+  /**
+   * Clean up old synced progress batches (older than specified days)
+   */
+  async cleanupSyncedBatches(daysOld: number = 30): Promise<number> {
+    try {
+      const deletedCount = await this.tauriDb.deleteSyncedProgressBatches(daysOld);
+      console.log(`🗑️ Deleted ${deletedCount} old synced progress batches`);
+      return deletedCount;
+    } catch (error) {
+      console.error('❌ Failed to cleanup synced batches:', error);
+      return 0;
     }
   }
 
   /**
-   * Get sync queue count
+   * Delete expired offline sessions
+   */
+  async cleanupExpiredSessions(daysOld: number = 7): Promise<number> {
+    try {
+      const deletedCount = await this.tauriDb.deleteExpiredOfflineSessions(daysOld);
+      console.log(`🗑️ Deleted ${deletedCount} expired offline sessions`);
+      return deletedCount;
+    } catch (error) {
+      console.error('❌ Failed to cleanup expired sessions:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Perform full cleanup (synced batches + expired sessions)
+   */
+  async performFullCleanup(): Promise<CleanupResult> {
+    console.log('🧹 Starting full cleanup...');
+
+    const result: CleanupResult = {
+      deletedBatches: 0,
+      deletedSessions: 0,
+      success: true,
+      errors: []
+    };
+
+    try {
+      result.deletedBatches = await this.cleanupSyncedBatches(30);
+    } catch (error) {
+      result.success = false;
+      result.errors.push(`Batch cleanup failed: ${error}`);
+    }
+
+    try {
+      result.deletedSessions = await this.cleanupExpiredSessions(7);
+    } catch (error) {
+      result.success = false;
+      result.errors.push(`Session cleanup failed: ${error}`);
+    }
+
+    console.log(`🧹 Cleanup complete: ${result.deletedBatches} batches, ${result.deletedSessions} sessions deleted`);
+    return result;
+  }
+
+  // ============================================================================
+  // STATISTICS & MONITORING
+  // ============================================================================
+
+  /**
+   * Get sync queue count (legacy - deprecated)
    */
   async getSyncQueueCount(): Promise<number> {
-    return this.tauriDb.getSyncQueueCount();
+    try {
+      return await this.tauriDb.getSyncQueueCount();
+    } catch (error) {
+      console.error('❌ Failed to get sync queue count:', error);
+      return 0;
+    }
   }
+
+  /**
+   * Get unsynced progress batch count
+   */
+  async getUnsyncedBatchCount(): Promise<number> {
+    try {
+      const batches = await this.tauriDb.getUnsyncedProgressBatches(1000);
+      return batches.length;
+    } catch (error) {
+      console.error('❌ Failed to get unsynced batch count:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Get offline session statistics
+   */
+  async getOfflineStatistics(): Promise<any> {
+    try {
+      return await this.tauriDb.getOfflineSessionStatistics();
+    } catch (error) {
+      console.error('❌ Failed to get offline statistics:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get comprehensive sync status
+   */
+  async getSyncStatus(): Promise<SyncStatus> {
+    const unsyncedBatches = await this.getUnsyncedBatchCount();
+    const stats = await this.getOfflineStatistics();
+    const lastSyncTime = await this.tauriDb.getLastSyncTime();
+
+    return {
+      isSyncing: this.isSyncingSubject.value,
+      unsyncedBatches,
+      activeSessions: stats?.active_sessions || 0,
+      expiredSessions: stats?.expired_sessions || 0,
+      lastSyncTime,
+      isOnline: this.connectivityService.isOnline()
+    };
+  }
+
+  // ============================================================================
+  // LEGACY SUPPORT (DEPRECATED)
+  // ============================================================================
 
   /**
    * Clear sync queue (use with caution)
+   * @deprecated Use cleanupSyncedBatches() instead
    */
   async clearSyncQueue(): Promise<void> {
+    console.warn('⚠️ clearSyncQueue() is deprecated. Use cleanupSyncedBatches() instead.');
     await this.tauriDb.clearSyncQueue();
     console.log('🗑️ Sync queue cleared');
   }
+}
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+export interface SyncBatchResult {
+  totalBatches: number;
+  syncedBatches: number;
+  failedBatches: number;
+  failedBatchIds: number[];
+}
+
+export interface CleanupResult {
+  deletedBatches: number;
+  deletedSessions: number;
+  success: boolean;
+  errors: string[];
+}
+
+export interface SyncStatus {
+  isSyncing: boolean;
+  unsyncedBatches: number;
+  activeSessions: number;
+  expiredSessions: number;
+  lastSyncTime: string | null;
+  isOnline: boolean;
 }

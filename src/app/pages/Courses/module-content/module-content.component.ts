@@ -121,8 +121,21 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
   }
 
   loadModuleContent(): void {
+    // Right before this.isLoading = false; (around line 260)
+    this.logCompletionState('AFTER LOAD');
+    console.log('✅ ========================================');
+    console.log('✅ MODULE CONTENT LOAD COMPLETE');
+    console.log('✅ ========================================');
+
+    this.isLoading = false;
+
     this.isLoading = true;
     this.error = null;
+
+    console.log('🔄 ========================================');
+    console.log('🔄 Loading module content for moduleId:', this.moduleId);
+    console.log('🔄 courseId:', this.courseId);
+    console.log('🔄 ========================================');
 
     // ✅ Load both module content AND course details (for final exam)
     forkJoin({
@@ -133,36 +146,117 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
+          console.log('📦 ========================================');
+          console.log('📦 RAW RESPONSE FROM BACKEND');
+          console.log('📦 ========================================');
+          console.log('📦 moduleContent:', response.moduleContent);
+          console.log('📦 courseDetails:', response.courseDetails);
+          console.log('📦 courseProgress:', response.courseProgress);
+
           // Module content data
           this.module = response.moduleContent.module;
           this.content = response.moduleContent.content;
           this.quiz = response.moduleContent.quiz || null;
 
+          console.log('📋 ========================================');
+          console.log('📋 PROCESSING CONTENT BLOCKS');
+          console.log('📋 ========================================');
+          console.log('📋 Total content blocks received:', this.content.length);
+
+          // ✅ DEBUG: Log all content blocks and their progress IN DETAIL
+          this.content.forEach((block, index) => {
+            console.log(`📋 Content Block ${index + 1}:`, {
+              id: block.id,
+              order: block.order,
+              module_id: block.module_id,
+              hasProgress: !!block.progress,
+              progressData: block.progress,
+              isCompleted: block.progress?.is_completed,
+              completedAt: block.progress?.completed_at,
+              viewedAt: block.progress?.viewed_at
+            });
+          });
+
           // ✅ Final exam data - with type safety fix
-          // Check both locations: root level and inside course object
           const courseDetailsResponse = response.courseDetails as any;
           this.finalExam = courseDetailsResponse.final_exam || courseDetailsResponse.course?.final_exam || null;
+
+          console.log('🎓 Final exam:', this.finalExam);
 
           // ✅ Check if all modules are completed
           this.allModulesCompleted = response.courseProgress.completed_modules === response.courseProgress.total_modules;
 
+          console.log('📊 Course Progress:', {
+            completedModules: response.courseProgress.completed_modules,
+            totalModules: response.courseProgress.total_modules,
+            allModulesCompleted: this.allModulesCompleted
+          });
+
           // ✅ Check if can take final exam
           this.canTakeFinalExam = response.courseProgress.can_take_final_exam;
 
+          console.log('🎯 Can take final exam:', this.canTakeFinalExam);
+
+          console.log('✅ ========================================');
+          console.log('✅ INITIALIZING COMPLETED CONTENT IDS');
+          console.log('✅ ========================================');
+
           // Initialize completed content IDs from progress data
-          this.content.forEach(block => {
+          this.completedContentIds.clear();
+          console.log('🗑️ Cleared completedContentIds set');
+
+          this.content.forEach((block, index) => {
             if (block.progress?.is_completed) {
               this.completedContentIds.add(block.id);
+              console.log(`✅ Content Block ${index + 1} marked as COMPLETED:`, {
+                id: block.id,
+                completedAt: block.progress.completed_at
+              });
+            } else {
+              console.log(`⬜ Content Block ${index + 1} NOT completed:`, {
+                id: block.id,
+                hasProgress: !!block.progress,
+                isCompleted: block.progress?.is_completed
+              });
             }
           });
+
+          console.log('📊 ========================================');
+          console.log('📊 COMPLETION SUMMARY');
+          console.log('📊 ========================================');
+          console.log('📊 Completed content IDs after load:', Array.from(this.completedContentIds));
+          console.log('📊 Total completed:', this.completedContentIds.size, 'out of', this.content.length);
+          console.log('📊 Completion percentage:', this.progressPercentage + '%');
+
+          // ✅ FIX 1: Resume at the correct position
+          let startIndex = 0;
 
           // If resume_content_id is provided, jump to that content
           if (response.moduleContent.resume_content_id) {
             const resumeIndex = this.content.findIndex(c => c.id === response.moduleContent.resume_content_id);
             if (resumeIndex !== -1) {
-              this.currentContentIndex = resumeIndex;
+              startIndex = resumeIndex;
+              console.log('🎯 Resuming at content index from backend:', startIndex);
+            }
+          } else {
+            // Find the first incomplete content
+            const firstIncompleteIndex = this.content.findIndex((block) =>
+              !this.completedContentIds.has(block.id)
+            );
+
+            if (firstIncompleteIndex !== -1) {
+              // Found incomplete content - start there
+              startIndex = firstIncompleteIndex;
+              console.log('🎯 Starting at first incomplete content index:', startIndex);
+            } else if (this.content.length > 0) {
+              // All content completed - start at last content (where quiz would be)
+              startIndex = this.content.length - 1;
+              console.log('🎯 All content completed - starting at last content index:', startIndex);
             }
           }
+
+          this.currentContentIndex = startIndex;
+          console.log('🎯 Final starting content index:', this.currentContentIndex);
 
           this.parseContent();
 
@@ -176,11 +270,23 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
           this.startCooldownTimer();
 
           this.isLoading = false;
+
+          console.log('✅ ========================================');
+          console.log('✅ MODULE CONTENT LOAD COMPLETE');
+          console.log('✅ ========================================');
         },
         error: (err) => {
+          console.error('❌ ========================================');
+          console.error('❌ ERROR LOADING MODULE CONTENT');
+          console.error('❌ ========================================');
+          console.error('❌ Error:', err);
+          console.error('❌ Error details:', {
+            message: err.message,
+            stack: err.stack
+          });
+
           this.error = 'Failed to load module content';
           this.isLoading = false;
-          console.error('Error loading module content:', err);
         }
       });
   }
@@ -324,6 +430,7 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
     });
   }
 
+  // Add this method to your component
   private createDocumentExtension() {
     const formatSize = (bytes: number): string => {
       if (bytes === 0) return '0 Bytes';
@@ -354,7 +461,12 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
 
         return [
           'a',
-          { href: src, target: '_blank', class: 'document-card' },
+          {
+            href: 'javascript:void(0)',  // ✅ Prevent default
+            class: 'document-card',
+            'data-pdf-url': src,
+            'data-pdf-name': filename
+          },
           ['div', { class: 'document-icon' }, ['i', { class: 'fas fa-file' }]],
           [
             'div',
@@ -371,6 +483,67 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
         ];
       },
     });
+  }
+
+  ngAfterViewInit(): void {
+    // Set up global click listener
+    document.addEventListener('click', async (e) => {
+      const target = (e.target as HTMLElement).closest('.document-card');
+      if (target) {
+        e.preventDefault(); // Prevent any default action
+
+        const url = target.getAttribute('data-pdf-url');
+        const name = target.getAttribute('data-pdf-name');
+
+        console.log('📄 Document card clicked!', { url, name }); // Debug log
+
+        if (url) {
+          await this.openPdfInWindow(url, name || 'Document');
+        }
+      }
+    });
+  }
+
+// Update this method with better error handling
+  private async openPdfInWindow(url: string, title: string): Promise<void> {
+    console.log('🔍 openPdfInWindow called', { url, title });
+
+    try {
+      // Check if in Tauri
+      if (typeof (window as any).__TAURI__ !== 'undefined') {
+        console.log('✅ Running in Tauri');
+
+        const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+
+        console.log('📦 WebviewWindow imported');
+
+        // Create new window with PDF
+        const webview = new WebviewWindow(`pdf-${Date.now()}`, {
+          url: url,
+          title: title,
+          width: 1200,
+          height: 800,
+          center: true,
+          resizable: true
+        });
+
+        console.log('🪟 WebviewWindow created', webview);
+
+        // Listen for errors
+        webview.once('tauri://error', (e) => {
+          console.error('❌ Webview error:', e);
+        });
+
+      } else {
+        console.log('🌐 Running in browser, using window.open');
+        window.open(url, '_blank');
+      }
+    } catch (error) {
+      console.error('❌ Error opening PDF:', error);
+      // Fallback to browser open
+      console.log('🔄 Falling back to window.open');
+      window.open(url, '_blank');
+    }
   }
 
   private formatFileSize(bytes: number): string {
@@ -427,26 +600,137 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
     return Math.round((this.completedContents / this.totalContents) * 100);
   }
 
+  // /**
+  //  * ✅ UPDATED: Check if student can take the quiz
+  //  * Quiz unlocks when:
+  //  * 1. All previous content is completed AND currently on last content, OR
+  //  * 2. ALL content is completed (including current)
+  //  */
+  // get canTakeQuiz(): boolean {
+  //   console.log('🔍 ========================================');
+  //   console.log('🔍 canTakeQuiz EVALUATION - OFFLINE DEBUG');
+  //   console.log('🔍 ========================================');
+  //   console.log('🔍 Quiz exists:', !!this.quiz);
+  //
+  //   if (!this.quiz) {
+  //     console.log('❌ No quiz available');
+  //     console.log('🔍 ========================================');
+  //     return false;
+  //   }
+  //
+  //   console.log('📊 Quiz info:', {
+  //     id: this.quiz.id,
+  //     title: this.quiz.title,
+  //     student_passed: this.quiz.student_passed,
+  //     student_can_attempt: this.quiz.student_can_attempt
+  //   });
+  //
+  //   // ✅ Disable quiz if already passed
+  //   if (this.quiz.student_passed) {
+  //     console.log('❌ Quiz already passed');
+  //     console.log('🔍 ========================================');
+  //     return false;
+  //   }
+  //
+  //   // Check if has attempts remaining
+  //   const hasAttemptsRemaining = this.quiz.student_can_attempt;
+  //   console.log('🎫 Has attempts remaining:', hasAttemptsRemaining);
+  //
+  //   if (!hasAttemptsRemaining) {
+  //     console.log('❌ No attempts remaining');
+  //     console.log('🔍 ========================================');
+  //     return false;
+  //   }
+  //
+  //   const totalContent = this.totalContents;
+  //   const completedContent = this.completedContents;
+  //
+  //   console.log('📈 Content status:', {
+  //     totalContent,
+  //     completedContent,
+  //     isLastContent: this.isLastContent,
+  //     currentIndex: this.currentContentIndex
+  //   });
+  //
+  //   console.log('📋 CompletedContentIds Set:', Array.from(this.completedContentIds));
+  //   console.log('📋 All content blocks status:');
+  //   this.content.forEach((c, i) => {
+  //     console.log(`   [${i}] id=${c.id}, hasProgress=${!!c.progress}, is_completed=${c.progress?.is_completed}, inSet=${this.completedContentIds.has(c.id)}`);
+  //   });
+  //
+  //   // ✅ FIX: If on last content, check if all PREVIOUS content is completed
+  //   if (this.isLastContent) {
+  //     const allPreviousCompleted = completedContent >= (totalContent - 1);
+  //     console.log('🎯 On LAST content:');
+  //     console.log('   - Total content blocks:', totalContent);
+  //     console.log('   - Completed content blocks:', completedContent);
+  //     console.log('   - Previous content needed:', totalContent - 1);
+  //     console.log('   - All previous completed?', allPreviousCompleted);
+  //     console.log('   - Calculation:', `${completedContent} >= ${totalContent - 1}`);
+  //     console.log('   - RESULT: QUIZ UNLOCKED =', allPreviousCompleted);
+  //     console.log('🔍 ========================================');
+  //     return allPreviousCompleted;
+  //   }
+  //
+  //   // Otherwise, require ALL content blocks to be completed
+  //   const allContentCompleted = completedContent === totalContent;
+  //   console.log('🎯 NOT on last content:');
+  //   console.log('   - Total content blocks:', totalContent);
+  //   console.log('   - Completed content blocks:', completedContent);
+  //   console.log('   - All content completed?', allContentCompleted);
+  //   console.log('   - Calculation:', `${completedContent} === ${totalContent}`);
+  //   console.log('   - RESULT: QUIZ UNLOCKED =', allContentCompleted);
+  //   console.log('🔍 ========================================');
+  //
+  //   return allContentCompleted;
+  // }
+
   /**
    * ✅ UPDATED: Check if student can take the quiz
-   * Disables quiz if already passed
+   * Quiz unlocks when:
+   * 1. All previous content is completed AND currently on last content, OR
+   * 2. ALL content is completed (including current)
    */
   get canTakeQuiz(): boolean {
-    if (!this.quiz) return false;
-
-    // ✅ NEW: Disable quiz if already passed
-    if (this.quiz.student_passed) return false;
-
-    // If on last content block, allow quiz (they're about to complete it)
-    if (this.isLastContent) {
-      return this.quiz.student_can_attempt;
+    if (!this.quiz) {
+      return false;
     }
 
-    // Otherwise, require all content blocks to be completed
-    const allContentCompleted = this.completedContents === this.totalContents;
-    const hasAttemptsRemaining = this.quiz.student_can_attempt;
+    // ✅ Disable quiz if already passed
+    if (this.quiz.student_passed) {
+      return false;
+    }
 
-    return allContentCompleted && hasAttemptsRemaining;
+    // Check if has attempts remaining
+    if (!this.quiz.student_can_attempt) {
+      return false;
+    }
+
+    const totalContent = this.totalContents;
+    const completedContent = this.completedContents;
+
+    // ✅ If on last content, check if all PREVIOUS content is completed
+    if (this.isLastContent) {
+      return completedContent >= (totalContent - 1);
+    }
+
+    // Otherwise, require ALL content blocks to be completed
+    return completedContent === totalContent;
+  }
+
+  /**
+   * ✅ DEBUG: Log completion state changes
+   */
+  private logCompletionState(action: string): void {
+    console.log(`\n🔍 ======== COMPLETION STATE: ${action} ========`);
+    console.log('📊 completedContentIds:', Array.from(this.completedContentIds));
+    console.log('📊 Content blocks:');
+    this.content.forEach((c, i) => {
+      console.log(`   [${i}] ${c.id}: progress=${!!c.progress}, completed=${c.progress?.is_completed}, inSet=${this.completedContentIds.has(c.id)}`);
+    });
+    console.log('📊 Total:', this.totalContents, '| Completed:', this.completedContents);
+    console.log('📊 Can take quiz:', this.canTakeQuiz);
+    console.log('🔍 ========================================\n');
   }
 
   /**
@@ -455,27 +739,38 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
   get quizDisabledReason(): string | null {
     if (!this.quiz) return null;
 
-    // ✅ NEW: If quiz is passed, show completion message
+    // ✅ If quiz is passed, show completion message
     if (this.quiz.student_passed) {
       return 'Quiz completed ✓';
     }
 
-    // If on last content, only check attempts
+    const totalContent = this.totalContents;
+    const completedContent = this.completedContents;
+
+    // ✅ FIX: If on last content, only check attempts and previous completion
     if (this.isLastContent) {
+      const allPreviousCompleted = completedContent >= (totalContent - 1);
+
+      if (!allPreviousCompleted) {
+        const remaining = (totalContent - 1) - completedContent;
+        return `Complete ${remaining} more content block${remaining > 1 ? 's' : ''} to unlock quiz`;
+      }
+
       if (!this.quiz.student_can_attempt) {
         if (this.cooldownTimeRemaining) {
           return `Available in ${this.cooldownTimeRemaining}`;
         }
         return 'No attempts remaining';
       }
-      return null; // Quiz is available
+
+      return null; // Quiz is available!
     }
 
-    // If not on last content, check completion status
-    const allContentCompleted = this.completedContents === this.totalContents;
+    // If not on last content, check if ALL content is completed
+    const allContentCompleted = completedContent === totalContent;
 
     if (!allContentCompleted) {
-      const remaining = this.totalContents - this.completedContents;
+      const remaining = totalContent - completedContent;
       return `Complete ${remaining} more content block${remaining > 1 ? 's' : ''} to unlock quiz`;
     }
 
@@ -579,25 +874,45 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
    * This is the KEY method - called ONLY when user clicks Next or navigates away
    */
   private markContentAsCompleted(contentId: string, callback?: () => void): void {
+    console.log('🔍 ========================================');
+    console.log('🔍 markContentAsCompleted CALLED');
+    console.log('🔍 ========================================');
+    console.log('🔍 contentId:', contentId);
+    console.log('🔍 isAlreadyCompleted:', this.isContentCompleted(contentId));
+    console.log('🔍 isCurrentlyMarking:', this.isMarkingContent);
+
+    this.logCompletionState('BEFORE MARK COMPLETE');
+
     // Skip if already completed or currently marking
     if (this.isContentCompleted(contentId) || this.isMarkingContent) {
+      console.log('⏭️ SKIPPED - Already completed or marking in progress');
+      console.log('🔍 ========================================');
       if (callback) callback();
       return;
     }
 
     this.isMarkingContent = true;
+    console.log('🚀 Calling backend markContentAsCompleted for:', contentId);
 
     this.studentCourseService.markContentAsCompleted(contentId)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
-          console.log('✅ Content completed:', contentId);
+          console.log('✅ ========================================');
+          console.log('✅ Backend response received');
+          console.log('✅ ========================================');
+          console.log('✅ Response:', response);
+          console.log('✅ Response progress:', response.progress);
 
           // Update local state
           this.completedContentIds.add(contentId);
+          console.log('✅ Added to completedContentIds:', contentId);
+          console.log('✅ Updated Set:', Array.from(this.completedContentIds));
 
           // Update content block progress
           const contentBlock = this.content.find(c => c.id === contentId);
+          console.log('📦 Found content block:', contentBlock?.id);
+
           if (contentBlock) {
             if (!contentBlock.progress) {
               contentBlock.progress = response.progress;
@@ -605,32 +920,82 @@ export class ModuleContentComponent implements OnInit, OnDestroy {
               contentBlock.progress.is_completed = true;
               contentBlock.progress.completed_at = response.progress.completed_at;
             }
+            console.log('📦 Updated content block progress:', contentBlock.progress);
           }
 
           // Update parsed content
           const parsedBlock = this.parsedContent.find(p => p.id === contentId);
           if (parsedBlock) {
             parsedBlock.isCompleted = true;
+            console.log('📝 Updated parsed block:', parsedBlock);
           }
+
+          this.logCompletionState('AFTER MARK COMPLETE');
+
+          // ✅ Check if quiz should be unlocked
+          console.log('🔍 Checking if quiz should unlock...');
+          this.checkQuizUnlock();
 
           // Handle module auto-completion
           if (response.module_auto_completed) {
+            console.log('🎉 Module auto-completed!');
             this.handleModuleAutoCompletion();
           }
 
           this.isMarkingContent = false;
 
           // Execute callback (navigation)
-          if (callback) callback();
+          if (callback) {
+            console.log('➡️ Executing callback (navigation)');
+            callback();
+          }
+
+          console.log('✅ ========================================');
+          console.log('✅ markContentAsCompleted COMPLETE');
+          console.log('✅ ========================================');
         },
         error: (err) => {
-          console.error('❌ Error completing content:', err);
+          console.error('❌ ========================================');
+          console.error('❌ Error completing content');
+          console.error('❌ ========================================');
+          console.error('❌ Error:', err);
           this.isMarkingContent = false;
 
           // Still execute callback even if completion fails
           if (callback) callback();
         }
       });
+  }
+
+  /**
+   * ✅ FIX 2: Check if the quiz should be unlocked
+   * Quiz unlocks when ALL content in the current module is completed
+   */
+  private checkQuizUnlock(): void {
+    if (!this.quiz) {
+      console.log('⏭️ No quiz for this module');
+      return;
+    }
+
+    const totalContent = this.content.length;
+    const completedContent = this.completedContentIds.size;
+
+    console.log('🔍 ========================================');
+    console.log('🔍 CHECKING QUIZ UNLOCK');
+    console.log('🔍 ========================================');
+    console.log('🔍 Total content:', totalContent);
+    console.log('🔍 Completed content:', completedContent);
+    console.log('🔍 All completed?', completedContent === totalContent);
+
+    if (completedContent === totalContent && totalContent > 0) {
+      console.log('🎉 ALL CONTENT COMPLETED - QUIZ UNLOCKED!');
+      // Reload module content to refresh quiz state
+      this.loadModuleContent();
+    } else {
+      console.log('🔒 Quiz still locked -', (totalContent - completedContent), 'content blocks remaining');
+    }
+
+    console.log('✅ ========================================');
   }
 
   /**

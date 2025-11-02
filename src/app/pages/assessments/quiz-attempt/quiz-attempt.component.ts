@@ -438,7 +438,7 @@ export class QuizAttemptComponent implements OnInit, OnDestroy {
     this.isNavigating = true;
 
     // Force submit even with unanswered questions
-    this.studentCourseService.completeQuizForced(this.attempt.id, true)
+    this.studentCourseService.completeQuiz(this.attempt.id, true)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {

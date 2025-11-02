@@ -14,7 +14,7 @@
 <div *ngIf="!isLoading && !error">
   <!-- Catalog Header -->
   <div class="catalog-header">
-    <h1 class="catalog-title">Explore Courses 📚</h1>
+    <h1 class="catalog-title">Explore Courses</h1>
     <p class="catalog-subtitle">Discover your next learning adventure from our comprehensive course catalog</p>
   </div>
 
@@ -132,10 +132,19 @@
               [src]="course.image.public_url"
               [alt]="course.title">
             <i *ngIf="!course.image || !course.image.public_url" class="fas {{ getCourseIcon(i) }}"></i>
+
+            <!-- Badge -->
             <div *ngIf="getCourseBadge(course)" class="course-badge">
               {{ getCourseBadge(course) }}
             </div>
+
+            <!-- Offline Available Badge -->
+            <div *ngIf="isCourseDownloaded(course.id)" class="offline-badge">
+              <i class="fas fa-download"></i>
+              <span>Offline</span>
+            </div>
           </div>
+
           <div class="course-content">
             <div class="course-category">{{ getCourseCategory(course) }}</div>
             <h3 class="course-title">{{ course.title }}</h3>
@@ -168,6 +177,12 @@
               <div class="course-meta-item">
                 <i class="fas fa-users"></i>
                 <span>{{ course.enrollment_count }} enrolled</span>
+              </div>
+
+              <!-- Offline Status Indicator -->
+              <div *ngIf="isCourseDownloaded(course.id)" class="course-meta-item offline-indicator">
+                <i class="fas fa-check-circle"></i>
+                <span>Available offline</span>
               </div>
             </div>
 

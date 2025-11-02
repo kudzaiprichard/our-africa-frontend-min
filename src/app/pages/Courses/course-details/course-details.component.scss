@@ -187,6 +187,78 @@
   50% { transform: translate(40px, 40px) rotate(180deg); }
 }
 
+/* Enrollment Status */
+.enrollment-status {
+  padding: 16px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  transition: all 0.3s ease;
+}
+
+.enrollment-status.not-enrolled {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.enrollment-status.downloaded {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+}
+
+.status-icon {
+  width: 40px;
+  height: 40px;
+  background: rgba(16, 185, 129, 0.2);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--secondary-color);
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.enrollment-status.not-enrolled .status-icon {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--accent-color);
+}
+
+.enrollment-status.downloaded .status-icon {
+  background: rgba(16, 185, 129, 0.25);
+  color: var(--secondary-color);
+}
+
+.status-text {
+  flex: 1;
+}
+
+.status-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--secondary-color);
+  margin-bottom: 2px;
+}
+
+.enrollment-status.not-enrolled .status-title {
+  color: var(--accent-color);
+}
+
+.enrollment-status.downloaded .status-title {
+  color: var(--secondary-color);
+}
+
+.status-subtitle {
+  font-size: 12px;
+  color: var(--dark-text-muted);
+}
+
+/* Action Buttons */
 .action-buttons {
   display: flex;
   flex-direction: column;
@@ -232,11 +304,167 @@
   gap: 10px;
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
   background: rgba(99, 102, 241, 0.2);
   border-color: rgba(99, 102, 241, 0.5);
 }
 
+.btn-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Download Button Styles */
+.btn-download {
+  width: 100%;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.btn-download:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+}
+
+.btn-download.downloading {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.7), rgba(5, 150, 105, 0.7));
+  cursor: not-allowed;
+  opacity: 0.9;
+}
+
+.btn-success {
+  width: 100%;
+  padding: 14px 24px;
+  background: rgba(16, 185, 129, 0.2);
+  border: 2px solid rgba(16, 185, 129, 0.5);
+  border-radius: 12px;
+  color: var(--secondary-color);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: not-allowed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* Download Progress Container */
+.download-progress-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Progress Bar Styles */
+.progress-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 4px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8px;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #059669);
+  transition: width 0.3s ease;
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.3),
+      transparent
+  );
+  animation: progressShine 2s infinite;
+}
+
+@keyframes progressShine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.progress-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--secondary-color);
+  min-width: 45px;
+  text-align: right;
+}
+
+/* Progress Step Text */
+.progress-step-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--dark-text-muted);
+}
+
+.progress-step-text i {
+  color: var(--primary-color);
+  font-size: 14px;
+}
+
+/* Cancel Download Button */
+.btn-cancel-download {
+  width: 100%;
+  padding: 10px 20px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 10px;
+  color: #ef4444;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-cancel-download:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+  transform: translateY(-1px);
+}
+
+/* Content Layout */
 .content-layout {
   display: flex;
   gap: 32px;
@@ -294,6 +522,7 @@
   margin: 0;
 }
 
+/* Prerequisites */
 .prerequisites-list {
   display: flex;
   flex-direction: column;
@@ -353,6 +582,7 @@
   color: var(--accent-color);
 }
 
+/* Modules Accordion */
 .modules-accordion {
   display: flex;
   flex-direction: column;
@@ -483,6 +713,7 @@
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
 }
 
+/* Final Exam Card */
 .final-exam-card {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
   border: 1px solid rgba(99, 102, 241, 0.3);
@@ -531,54 +762,7 @@
   gap: 8px;
 }
 
-.instructor-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 20px;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(148, 163, 184, 0.1);
-  border-radius: 12px;
-}
-
-.instructor-avatar {
-  width: 64px;
-  height: 64px;
-  background: linear-gradient(135deg, var(--innovation-purple), var(--primary-color));
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  font-weight: 600;
-  color: white;
-  flex-shrink: 0;
-}
-
-.instructor-info {
-  flex: 1;
-}
-
-.instructor-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--dark-text);
-  margin-bottom: 4px;
-}
-
-.instructor-title {
-  font-size: 13px;
-  color: var(--dark-text-muted);
-  margin-bottom: 8px;
-}
-
-.instructor-stats {
-  display: flex;
-  gap: 16px;
-  font-size: 12px;
-  color: var(--dark-text-muted);
-}
-
+/* Info List */
 .info-list {
   display: flex;
   flex-direction: column;
@@ -592,6 +776,11 @@
   padding: 12px;
   background: rgba(15, 23, 42, 0.4);
   border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.info-item:hover {
+  background: rgba(15, 23, 42, 0.6);
 }
 
 .info-icon {
@@ -624,60 +813,27 @@
   font-weight: 500;
 }
 
-.enrollment-status {
-  padding: 16px;
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+/* Offline Icon Styles */
+.offline-icon {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: var(--secondary-color) !important;
 }
 
-.enrollment-status.not-enrolled {
-  background: rgba(245, 158, 11, 0.1);
-  border-color: rgba(245, 158, 11, 0.3);
+.offline-value {
+  color: var(--secondary-color) !important;
+  font-weight: 600 !important;
 }
 
-.status-icon {
-  width: 40px;
-  height: 40px;
-  background: rgba(16, 185, 129, 0.2);
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--secondary-color);
-  font-size: 18px;
-  flex-shrink: 0;
+/* Spinner Animation */
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
-.enrollment-status.not-enrolled .status-icon {
-  background: rgba(245, 158, 11, 0.2);
-  color: var(--accent-color);
+.fa-spinner.fa-spin {
+  animation: spin 1s linear infinite;
 }
 
-.status-text {
-  flex: 1;
-}
-
-.status-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--secondary-color);
-  margin-bottom: 2px;
-}
-
-.enrollment-status.not-enrolled .status-title {
-  color: var(--accent-color);
-}
-
-.status-subtitle {
-  font-size: 12px;
-  color: var(--dark-text-muted);
-}
-
+/* Responsive Design */
 @media (max-width: 1024px) {
   .hero-content-wrapper {
     flex-direction: column;
@@ -711,5 +867,78 @@
   .section-card {
     padding: 20px;
   }
+
+  .btn-download,
+  .btn-success,
+  .btn-cancel-download,
+  .btn-primary,
+  .btn-secondary {
+    font-size: 14px;
+    padding: 12px 20px;
+  }
+
+  .progress-text {
+    font-size: 11px;
+    min-width: 40px;
+  }
+
+  .progress-step-text {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+
+  .download-progress-container {
+    gap: 8px;
+  }
+
+  .course-main-title {
+    font-size: 24px;
+  }
+
+  .module-header {
+    padding: 16px;
+  }
+
+  .module-number {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+
+  .module-title {
+    font-size: 14px;
+  }
+
+  .stat-icon-wrapper {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+
+  .stat-value {
+    font-size: 14px;
+  }
 }
 
+@media (max-width: 480px) {
+  .hero-content-wrapper {
+    padding: 16px;
+  }
+
+  .section-card {
+    padding: 16px;
+  }
+
+  .course-category-badge {
+    font-size: 11px;
+    padding: 5px 12px;
+  }
+
+  .action-buttons {
+    gap: 10px;
+  }
+
+  .progress-bar-container {
+    gap: 8px;
+  }
+}

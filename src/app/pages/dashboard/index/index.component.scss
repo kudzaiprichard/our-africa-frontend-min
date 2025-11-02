@@ -428,6 +428,233 @@
   box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
 }
 
+/* Offline Badge on Course Cards */
+.offline-badge {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  padding: 6px 12px;
+  background: rgba(16, 185, 129, 0.9);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 2;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+}
+
+.offline-badge i {
+  font-size: 12px;
+}
+
+/* Offline Status in Meta */
+.offline-stat {
+  color: var(--secondary-color) !important;
+  font-weight: 600;
+}
+
+.offline-stat i {
+  color: var(--secondary-color) !important;
+}
+
+/* Course Actions Container */
+.course-actions {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  display: flex;
+  gap: 8px;
+}
+
+/* Sync Button Small */
+.btn-sync-small {
+  flex: 1;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-sync-small:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+}
+
+.btn-sync-small:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Enroll Button Small */
+.btn-enroll-small {
+  flex: 1;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, var(--primary-color), var(--innovation-purple));
+  border: none;
+  border-radius:10px;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-enroll-small:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+}
+
+/* Download Button Small */
+.btn-download-small {
+  flex: 1;
+  padding: 10px 16px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 10px;
+  color: var(--secondary-color);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-download-small:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.5);
+  transform: translateY(-1px);
+}
+
+.btn-download-small:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.download-text {
+  display: inline;
+}
+
+/* Loading State */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 20px;
+}
+
+.loading-state i {
+  font-size: 48px;
+  color: var(--primary-color);
+}
+
+.loading-state p {
+  color: var(--dark-text-muted);
+  font-size: 16px;
+}
+
+/* Error State */
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 20px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 16px;
+  padding: 48px;
+  text-align: center;
+}
+
+.error-state i {
+  font-size: 64px;
+  color: #ef4444;
+}
+
+.error-state h2 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--dark-text);
+  margin: 0;
+}
+
+.error-state p {
+  font-size: 16px;
+  color: var(--dark-text-muted);
+  margin: 0;
+}
+
+/* Responsive Design for New Buttons */
+@media (max-width: 768px) {
+  .offline-badge {
+    bottom: 8px;
+    right: 8px;
+    padding: 5px 10px;
+    font-size: 10px;
+  }
+
+  .offline-badge i {
+    font-size: 10px;
+  }
+
+  .course-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .btn-sync-small,
+  .btn-enroll-small,
+  .btn-download-small {
+    width: 100%;
+  }
+
+  .download-text {
+    display: inline;
+  }
+}
+
+@media (max-width: 480px) {
+  .course-actions {
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+
+  .btn-sync-small,
+  .btn-enroll-small,
+  .btn-download-small {
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+
+  .offline-badge {
+    padding: 4px 8px;
+    font-size: 9px;
+  }
+}
+
 /* Responsive Empty States */
 @media (max-width: 768px) {
   .empty-state {

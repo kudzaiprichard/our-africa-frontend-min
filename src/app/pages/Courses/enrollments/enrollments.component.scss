@@ -178,6 +178,126 @@
   animation: shimmer 3s infinite;
   z-index: 0;
 }
+/* Offline Badge - NEW */
+.offline-badge {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  padding: 6px 12px;
+  background: rgba(16, 185, 129, 0.9);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 2;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+}
+
+.offline-badge i {
+  font-size: 12px;
+}
+
+/* Offline Status in Stats - NEW */
+.offline-stat {
+  color: var(--secondary-color) !important;
+  font-weight: 600;
+}
+
+.offline-stat i {
+  color: var(--secondary-color) !important;
+}
+
+/* Sync Button - NEW */
+.btn-sync {
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 90px;
+}
+
+.btn-sync:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+}
+
+.btn-sync:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btn-sync-text {
+  display: inline;
+}
+
+/* Download Button Small - NEW */
+.btn-download-small {
+  padding: 10px 16px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 10px;
+  color: var(--secondary-color);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-download-small:hover {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.5);
+  transform: translateY(-1px);
+}
+
+/* Update enrollment actions to accommodate new buttons */
+.enrollment-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .offline-badge {
+    bottom: 8px;
+    left: 8px;
+    padding: 5px 10px;
+    font-size: 10px;
+  }
+
+  .offline-badge i {
+    font-size: 10px;
+  }
+
+  .btn-sync-text {
+    display: none;
+  }
+
+  .btn-sync {
+    min-width: 40px;
+    padding: 10px;
+  }
+
+  .enrollment-actions {
+    flex-wrap: wrap;
+  }
+}
 
 @keyframes shimmer {
   0%, 100% { transform: translate(0, 0); }

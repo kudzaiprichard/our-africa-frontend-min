@@ -3,10 +3,11 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, takeUntil, forkJoin } from 'rxjs';
-
-// Updated imports
+import { Subject, takeUntil, forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { StudentCourseService } from '../../../libs/course';
+import { ConnectivityService } from '../../../theme/shared/services/connectivity.service';
+import { ToastsService } from '../../../theme/shared';
 import {
   CheckEnrollmentEligibilityResponse
 } from '../../../libs/course';
@@ -34,24 +35,97 @@ export class CourseDetailsComponent implements OnInit, OnDestroy {
 
   isLoading = false;
   error: string | null = null;
+  isOffline = false;
+  isEnrolledInCourse = false;
+  isCheckingEnrollment = false;
 
   expandedModules = new Set<string>();
+
+  isDownloading = false;
+  downloadProgress = 0;
+  downloadCurrentStep = '';
+  downloadPhase = '';
+  isCourseDownloaded = false;
+  isCheckingDownloadStatus = false;
+
+  mediaDownloadInfo = {
+    totalFiles: 0,
+    downloadedFiles: 0,
+    currentFile: null as string | null
+  };
+
+  Math = Math;
 
   constructor(
     private route: ActivatedRoute,
     public router: Router,
-    private studentCourseService: StudentCourseService
+    private studentCourseService: StudentCourseService,
+    private connectivity: ConnectivityService,
+    private toasts: ToastsService
   ) {}
 
   ngOnInit(): void {
+    this.isOffline = this.connectivity.isOffline();
+
     this.route.queryParams
       .pipe(takeUntil(this.destroy$))
       .subscribe(params => {
         this.courseId = params['id'];
         if (this.courseId) {
           this.loadAllData();
+          this.checkIfCourseDownloaded();
+          this.checkEnrollmentStatus();
         } else {
           this.error = 'No course ID provided';
+          this.toasts.error('No course ID provided.');
+        }
+      });
+
+    this.studentCourseService.getDownloadProgress$()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((progress: any) => {
+        this.isDownloading = progress.status === 'downloading';
+        this.downloadProgress = progress.percentage || 0;
+        this.downloadCurrentStep = progress.currentStep || '';
+        this.downloadPhase = progress.phase || '';
+
+        if (progress.mediaProgress) {
+          this.mediaDownloadInfo = {
+            totalFiles: progress.mediaProgress.totalFiles || 0,
+            downloadedFiles: progress.mediaProgress.downloadedFiles || 0,
+            currentFile: progress.mediaProgress.currentFile || null
+          };
+
+          if (progress.phase === 'downloading_media' && this.mediaDownloadInfo.totalFiles > 0) {
+            this.downloadCurrentStep =
+              `Downloading media: ${this.mediaDownloadInfo.downloadedFiles}/${this.mediaDownloadInfo.totalFiles} files`;
+
+            if (this.mediaDownloadInfo.currentFile) {
+              this.downloadCurrentStep += ` (${this.mediaDownloadInfo.currentFile})`;
+            }
+          }
+        }
+
+        if (progress.status === 'completed') {
+          setTimeout(() => {
+            this.checkIfCourseDownloaded();
+            this.isDownloading = false;
+            this.downloadProgress = 0;
+            this.downloadCurrentStep = '';
+            this.downloadPhase = '';
+            this.mediaDownloadInfo = {
+              totalFiles: 0,
+              downloadedFiles: 0,
+              currentFile: null
+            };
+          }, 1000);
+        }
+
+        if (progress.status === 'error') {
+          this.isDownloading = false;
+          this.downloadProgress = 0;
+          this.downloadCurrentStep = '';
+          this.downloadPhase = '';
         }
       });
   }
@@ -65,26 +139,179 @@ export class CourseDetailsComponent implements OnInit, OnDestroy {
     this.isLoading = true;
     this.error = null;
 
-    forkJoin({
+    this.isOffline = this.connectivity.isOffline();
+
+    const requests: {
+      courseDetails: any;
+      modules: any;
+      eligibility?: any;
+    } = {
       courseDetails: this.studentCourseService.getCourseDetails(this.courseId),
-      modules: this.studentCourseService.getCourseModules(this.courseId),
-      eligibility: this.studentCourseService.checkEnrollmentEligibility(this.courseId)
-    })
+      modules: this.studentCourseService.getCourseModules(this.courseId)
+    };
+
+    if (!this.isOffline) {
+      requests.eligibility = this.studentCourseService.checkEnrollmentEligibility(this.courseId)
+        .pipe(
+          catchError((error: any) => {
+            return of(null);
+          })
+        );
+    }
+
+    forkJoin(requests)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (responses) => {
+        next: (responses: any) => {
           this.course = responses.courseDetails.course;
           this.finalExam = responses.courseDetails.final_exam || null;
           this.modules = responses.modules.modules;
-          this.eligibility = responses.eligibility;
+          this.eligibility = responses.eligibility || null;
           this.isLoading = false;
         },
-        error: (err) => {
+        error: (err: any) => {
           this.error = 'Failed to load course details';
           this.isLoading = false;
-          console.error('Error loading course:', err);
+          this.toasts.error('Unable to load course details. Please try again.');
         }
       });
+  }
+
+  async checkEnrollmentStatus(): Promise<void> {
+    this.isCheckingEnrollment = true;
+
+    try {
+      const enrollmentDetails = await this.studentCourseService
+        .getEnrollmentDetails(this.courseId)
+        .toPromise();
+
+      if (enrollmentDetails && enrollmentDetails.enrollment) {
+        this.isEnrolledInCourse = true;
+      } else {
+        this.isEnrolledInCourse = false;
+      }
+    } catch (error) {
+      this.isEnrolledInCourse = false;
+    } finally {
+      this.isCheckingEnrollment = false;
+    }
+  }
+
+  async checkIfCourseDownloaded(): Promise<void> {
+    this.isCheckingDownloadStatus = true;
+    try {
+      this.isCourseDownloaded = await this.studentCourseService.isCourseDownloadedForOffline(this.courseId);
+    } catch (error) {
+      this.isCourseDownloaded = false;
+      this.toasts.error('Unable to check download status.');
+    } finally {
+      this.isCheckingDownloadStatus = false;
+    }
+  }
+
+  async downloadCourseForOffline(): Promise<void> {
+    this.isOffline = this.connectivity.isOffline();
+
+    if (this.isOffline) {
+      this.toasts.warning('You must be online to download courses for offline use.');
+      return;
+    }
+
+    if (!this.isEnrolled()) {
+      this.toasts.warning('You must be enrolled in this course to download it for offline use.');
+      return;
+    }
+
+    if (this.isDownloading) {
+      return;
+    }
+
+    const confirmed = confirm(
+      'This will download the entire course content for offline use.\n\n' +
+      'The download includes:\n' +
+      '• All course modules and content\n' +
+      '• Quiz questions\n' +
+      '• Media files (videos, images, documents)\n\n' +
+      'This may take a few minutes and use significant storage space.\n\n' +
+      'Continue?'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      this.toasts.info('Starting course download for offline access...');
+
+      const response = await this.studentCourseService.downloadCourseForOffline(
+        this.courseId,
+        7
+      );
+
+      this.toasts.success('Course downloaded successfully! You can now access this course offline.');
+
+      await this.checkIfCourseDownloaded();
+
+    } catch (error: any) {
+      const errorMessage = error.message || error.error?.message || 'Unknown error occurred';
+      this.toasts.error(`Failed to download course: ${errorMessage}`);
+
+      this.isDownloading = false;
+      this.downloadProgress = 0;
+      this.downloadCurrentStep = '';
+      this.downloadPhase = '';
+    }
+  }
+
+  cancelDownload(): void {
+    if (!this.isDownloading) {
+      return;
+    }
+
+    const confirmed = confirm('Are you sure you want to cancel the download?');
+    if (confirmed) {
+      this.studentCourseService.cancelDownload();
+      this.toasts.info('Download cancelled.');
+      this.isDownloading = false;
+      this.downloadProgress = 0;
+      this.downloadCurrentStep = '';
+      this.downloadPhase = '';
+      this.mediaDownloadInfo = {
+        totalFiles: 0,
+        downloadedFiles: 0,
+        currentFile: null
+      };
+    }
+  }
+
+  getDownloadStatusText(): string {
+    if (this.downloadCurrentStep) {
+      return this.downloadCurrentStep;
+    }
+    if (this.isDownloading && this.downloadProgress > 0) {
+      return `Downloading... ${Math.round(this.downloadProgress)}%`;
+    }
+    if (this.isDownloading) {
+      return 'Preparing download...';
+    }
+    return 'Download for Offline';
+  }
+
+  getDownloadPhaseText(): string {
+    switch (this.downloadPhase) {
+      case 'fetching':
+        return 'Fetching course package...';
+      case 'saving_structure':
+        return 'Saving course structure...';
+      case 'downloading_media':
+        return 'Downloading media files...';
+      case 'verifying':
+        return 'Verifying download...';
+      case 'completed':
+        return 'Download complete!';
+      default:
+        return '';
+    }
   }
 
   toggleModule(moduleId: string): void {
@@ -100,6 +327,13 @@ export class CourseDetailsComponent implements OnInit, OnDestroy {
   }
 
   enrollInCourse(): void {
+    this.isOffline = this.connectivity.isOffline();
+
+    if (this.isOffline) {
+      this.toasts.warning('You must be online to enroll in courses.');
+      return;
+    }
+
     if (!this.canEnroll()) {
       return;
     }
@@ -108,14 +342,16 @@ export class CourseDetailsComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
-          console.log('Enrolled successfully:', response);
-          alert('Successfully enrolled! Redirecting to your enrollments...');
-          this.router.navigate(['/courses/enrollments']);
+          this.toasts.success('Successfully enrolled! You can now start learning.');
+
+          this.loadAllData();
+          this.checkIfCourseDownloaded();
+          this.checkEnrollmentStatus();
         },
         error: (err) => {
-          console.error('Enrollment failed:', err);
           this.error = 'Failed to enroll in course';
-          alert('Failed to enroll. Please try again.');
+          const errorMessage = err.error?.message || err.message || 'Unknown error';
+          this.toasts.error(`Failed to enroll: ${errorMessage}`);
         }
       });
   }
@@ -133,22 +369,32 @@ export class CourseDetailsComponent implements OnInit, OnDestroy {
         title: this.course?.title || 'Course',
         text: this.course?.description || 'Check out this course!',
         url: url
-      }).catch(err => console.log('Error sharing:', err));
+      }).catch(err => {
+        this.toasts.error('Unable to share course.');
+      });
     } else {
       navigator.clipboard.writeText(url).then(() => {
-        alert('Course link copied to clipboard!');
+        this.toasts.success('Course link copied to clipboard!');
+      }).catch(() => {
+        this.toasts.error('Unable to copy link to clipboard.');
       });
     }
   }
 
   canEnroll(): boolean {
+    if (this.isEnrolledInCourse) {
+      return false;
+    }
+
+    if (this.isOffline) {
+      return false;
+    }
+
     return this.eligibility?.eligible === true;
   }
 
   isEnrolled(): boolean {
-    // This should check actual enrollment status
-    // For now, returning false - you may want to add enrollment check
-    return false;
+    return this.isEnrolledInCourse;
   }
 
   getEstimatedDuration(moduleCount: number): string {
@@ -157,12 +403,10 @@ export class CourseDetailsComponent implements OnInit, OnDestroy {
   }
 
   getCourseCategory(): string {
-    // Use the category field from CourseFull
     return this.course?.category || 'General';
   }
 
   getCourseRating(): string {
-    // This could be enhanced to use actual ratings if available
     return '4.8/5.0';
   }
 

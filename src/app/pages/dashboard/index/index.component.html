@@ -2,7 +2,7 @@
 <div *ngIf="dashboardData && dashboardData.total_courses > 0 && !isLoading">
   <!-- Dashboard Header -->
   <div class="dashboard-header">
-    <h1 class="dashboard-title">Welcome back, {{ userService.getFullName() }}! 👋</h1>
+    <h1 class="dashboard-title">Welcome back, {{ userService.getFullName() }}</h1>
     <p class="dashboard-subtitle">Here's what's happening with your learning journey today</p>
   </div>
 
@@ -66,7 +66,7 @@
       </div>
 
       <div *ngIf="recentActivities.length === 0" class="empty-state">
-        <p>No recent activity yet. Start learning to see your progress here!</p>
+        <p>No recent activity yet. Start learning to see your progress here.</p>
       </div>
 
       <div *ngFor="let activity of recentActivities" class="activity-item">
@@ -114,15 +114,15 @@
     </div>
   </div>
 
-  <!-- In Progress Courses -->
-  <div class="courses-section" *ngIf="getInProgressEnrollments().length > 0">
+  <!-- Your Enrolled Courses (Includes both in-progress and not started) -->
+  <div class="courses-section" *ngIf="getActiveEnrollments().length > 0">
     <div class="section-header">
-      <h2 class="section-title">Your Active Courses</h2>
+      <h2 class="section-title">Your Enrolled Courses</h2>
       <button class="view-all-btn" (click)="navigateToEnrollments()">View All</button>
     </div>
 
     <div class="courses-grid">
-      <div *ngFor="let enrollment of getInProgressEnrollments().slice(0, 3)"
+      <div *ngFor="let enrollment of getActiveEnrollments().slice(0, 3)"
            class="course-card"
            (click)="continueCourseLearning(enrollment)">
         <div class="course-banner">
@@ -130,25 +130,21 @@
                [src]="enrollment.course.image.public_url"
                [alt]="enrollment.course.title">
           <i *ngIf="!enrollment.course.image || !enrollment.course.image.public_url" class="fas fa-book"></i>
+
+          <!-- Offline Badge -->
+          <div *ngIf="isCourseDownloaded(enrollment.course_id)" class="offline-badge">
+            <i class="fas fa-download"></i>
+            <span>Offline</span>
+          </div>
         </div>
         <div class="course-content">
           <h3 class="course-title">{{ enrollment.course.title }}</h3>
-          <p class="course-description">{{ enrollment.course.description || 'Continue your learning journey' }}</p>
-
-          <div class="course-progress">
-            <div class="progress-header">
-              <span class="progress-label">Progress</span>
-              <span class="progress-percentage">{{ enrollment.completion_percentage }}%</span>
-            </div>
-            <div class="progress-bar">
-              <div class="progress-fill" [style.width.%]="enrollment.completion_percentage"></div>
-            </div>
-          </div>
+          <p class="course-description">{{ enrollment.course.description || 'Start your learning journey' }}</p>
 
           <div class="course-meta">
             <div class="course-meta-item">
               <i class="fas fa-book"></i>
-              <span>{{ enrollment.completed_modules }}/{{ enrollment.total_modules }} modules</span>
+              <span>{{ enrollment.total_modules }} modules</span>
             </div>
             <div class="course-meta-item">
               <i class="fas fa-signal"></i>
@@ -165,6 +161,34 @@
               <i class="fas fa-tag"></i>
               <span>{{ enrollment.course.category }}</span>
             </div>
+            <!-- Offline Status -->
+            <div class="course-meta-item offline-stat" *ngIf="isCourseDownloaded(enrollment.course_id)">
+              <i class="fas fa-check-circle"></i>
+              <span>Available offline</span>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="course-actions">
+            <!-- Download Button: Show only if NOT downloaded -->
+            <button
+              *ngIf="!isCourseDownloaded(enrollment.course_id)"
+              class="btn-download-small"
+              [disabled]="isDownloading(enrollment.course_id)"
+              (click)="downloadCourseForOffline(enrollment.course_id, $event)">
+              <i [class]="isDownloading(enrollment.course_id) ? 'fas fa-spinner fa-spin' : 'fas fa-download'"></i>
+              <span class="download-text">{{ isDownloading(enrollment.course_id) ? 'Downloading...' : 'Download' }}</span>
+            </button>
+
+            <!-- Sync Button: Show only if downloaded AND online -->
+            <button
+              *ngIf="isCourseDownloaded(enrollment.course_id) && isOnline()"
+              class="btn-sync-small"
+              [disabled]="isSyncing(enrollment.course_id)"
+              (click)="syncCourseProgress(enrollment, $event)">
+              <i [class]="isSyncing(enrollment.course_id) ? 'fas fa-spinner fa-spin' : 'fas fa-sync-alt'"></i>
+              <span>{{ isSyncing(enrollment.course_id) ? 'Syncing...' : 'Sync Progress' }}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -217,6 +241,16 @@
               <span>{{ course.enrollment_count }} enrolled</span>
             </div>
           </div>
+
+          <!-- Action Buttons -->
+          <div class="course-actions">
+            <button
+              class="btn-enroll-small"
+              (click)="enrollInCourse(course.id, $event)">
+              <i class="fas fa-graduation-cap"></i>
+              <span>Enroll Now</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -238,6 +272,12 @@
                [src]="enrollment.course.image.public_url"
                [alt]="enrollment.course.title">
           <i *ngIf="!enrollment.course.image || !enrollment.course.image.public_url" class="fas fa-check-circle"></i>
+
+          <!-- Offline Badge -->
+          <div *ngIf="isCourseDownloaded(enrollment.course_id)" class="offline-badge">
+            <i class="fas fa-download"></i>
+            <span>Offline</span>
+          </div>
         </div>
         <div class="course-content">
           <h3 class="course-title">{{ enrollment.course.title }}</h3>
@@ -270,7 +310,7 @@
 <div *ngIf="dashboardData && dashboardData.total_courses === 0 && !isLoading" class="empty-dashboard">
   <i class="fas fa-graduation-cap"></i>
   <h2>Start Your Learning Journey</h2>
-  <p>You haven't enrolled in any courses yet. Browse our catalog to get started!</p>
+  <p>You have not enrolled in any courses yet. Browse our catalog to get started.</p>
   <button class="action-btn primary" (click)="navigateToCatalog()">Browse Courses</button>
 </div>
 
@@ -283,7 +323,7 @@
 <!-- Error State -->
 <div *ngIf="error && !isLoading" class="error-state">
   <i class="fas fa-exclamation-circle"></i>
-  <h2>Oops! Something went wrong</h2>
+  <h2>Something went wrong</h2>
   <p>{{ error }}</p>
   <button class="action-btn primary" (click)="loadDashboard()">Try Again</button>
 </div>

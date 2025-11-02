@@ -4,8 +4,6 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { Subject, takeUntil, switchMap, of } from 'rxjs';
-
-// Updated imports
 import { StudentCourseService } from '../../../libs/course';
 import {
   GetStudentEnrollmentsResponse
@@ -13,6 +11,9 @@ import {
 import {
   EnrollmentWithCourseAndProgress
 } from '../../../libs/course';
+import { OfflineSyncService } from '../../../theme/shared/services/offline-sync.service';
+import { ConnectivityService } from '../../../theme/shared/services/connectivity.service';
+import { ToastsService } from '../../../theme/shared';
 
 @Component({
   selector: 'app-enrollments',
@@ -31,6 +32,11 @@ export class EnrollmentsComponent implements OnInit, OnDestroy {
   isLoading = false;
   error: string | null = null;
   continuingCourseId: string | null = null;
+
+  downloadedCourses = new Set<string>();
+  syncingCourseId: string | null = null;
+  downloadingCourseId: string | null = null;
+  syncProgress = 0;
 
   private gradients = [
     'linear-gradient(135deg, #6366f1, #8b5cf6)',
@@ -56,11 +62,30 @@ export class EnrollmentsComponent implements OnInit, OnDestroy {
 
   constructor(
     private studentCourseService: StudentCourseService,
+    private offlineSyncService: OfflineSyncService,
+    private connectivityService: ConnectivityService,
+    private toasts: ToastsService,
     private router: Router
   ) {}
 
   ngOnInit(): void {
     this.loadEnrollments();
+    this.checkOfflineStatus();
+
+    this.offlineSyncService.isSyncing$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(isSyncing => {
+        if (!isSyncing) {
+          this.syncingCourseId = null;
+          this.syncProgress = 0;
+        }
+      });
+
+    this.offlineSyncService.syncProgress$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(progress => {
+        this.syncProgress = progress;
+      });
   }
 
   ngOnDestroy(): void {
@@ -83,9 +108,120 @@ export class EnrollmentsComponent implements OnInit, OnDestroy {
         error: (err) => {
           this.error = 'Failed to load enrollments';
           this.isLoading = false;
-          console.error('Error loading enrollments:', err);
+          this.toasts.error('Unable to load your enrollments. Please try again.');
         }
       });
+  }
+
+  async checkOfflineStatus(): Promise<void> {
+    try {
+      for (const enrollment of this.allEnrollments) {
+        const isDownloaded = await this.studentCourseService.isCourseDownloadedForOffline(enrollment.course_id);
+        if (isDownloaded) {
+          this.downloadedCourses.add(enrollment.course_id);
+        }
+      }
+    } catch (error) {
+      this.toasts.error('Unable to check offline status.');
+    }
+  }
+
+  isCourseDownloaded(courseId: string): boolean {
+    return this.downloadedCourses.has(courseId);
+  }
+
+  isOnline(): boolean {
+    return this.connectivityService.isOnline();
+  }
+
+  async syncCourseProgress(enrollment: EnrollmentWithCourseAndProgress, event: Event): Promise<void> {
+    event.stopPropagation();
+
+    if (!this.isCourseDownloaded(enrollment.course_id)) {
+      this.toasts.warning('This course is not downloaded for offline use.');
+      return;
+    }
+
+    if (!this.isOnline()) {
+      this.toasts.warning('You need to be online to sync progress.');
+      return;
+    }
+
+    if (this.syncingCourseId) {
+      return;
+    }
+
+    const confirmed = confirm(
+      `Sync progress for "${enrollment.course.title}"?\n\n` +
+      'This will upload your offline progress to the server.'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      this.syncingCourseId = enrollment.course_id;
+      this.toasts.info('Syncing your progress...');
+
+      await this.offlineSyncService.syncAll();
+
+      this.toasts.success('Progress synced successfully!');
+      this.loadEnrollments();
+
+    } catch (error: any) {
+      const errorMessage = error.message || 'Unknown error occurred';
+      this.toasts.error(`Failed to sync progress: ${errorMessage}`);
+    } finally {
+      this.syncingCourseId = null;
+      this.syncProgress = 0;
+    }
+  }
+
+  isSyncing(courseId: string): boolean {
+    return this.syncingCourseId === courseId;
+  }
+
+  async downloadCourseForOffline(enrollment: EnrollmentWithCourseAndProgress, event: Event): Promise<void> {
+    event.stopPropagation();
+
+    if (this.isCourseDownloaded(enrollment.course_id)) {
+      this.toasts.info('This course is already downloaded for offline use.');
+      return;
+    }
+
+    if (this.downloadingCourseId) {
+      return;
+    }
+
+    const confirmed = confirm(
+      `Download "${enrollment.course.title}" for offline use?\n\n` +
+      'This will download all course content and media files.'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      this.downloadingCourseId = enrollment.course_id;
+      this.toasts.info('Starting course download for offline access...');
+
+      await this.studentCourseService.downloadCourseForOffline(enrollment.course_id, 7);
+
+      this.toasts.success('Course downloaded successfully! You can now access it offline.');
+      this.downloadedCourses.add(enrollment.course_id);
+
+    } catch (error: any) {
+      const errorMessage = error.message || 'Unknown error occurred';
+      this.toasts.error(`Failed to download course: ${errorMessage}`);
+    } finally {
+      this.downloadingCourseId = null;
+    }
+  }
+
+  isDownloading(courseId: string): boolean {
+    return this.downloadingCourseId === courseId;
   }
 
   filterEnrollments(): void {
@@ -143,7 +279,6 @@ export class EnrollmentsComponent implements OnInit, OnDestroy {
   }
 
   getCategory(enrollment: EnrollmentWithCourseAndProgress): string {
-    // Use the category field from CourseBasic
     return enrollment.course.category || 'General';
   }
 
@@ -164,14 +299,9 @@ export class EnrollmentsComponent implements OnInit, OnDestroy {
     return `${totalHours}h left`;
   }
 
-  /**
-   * ✅ UPDATED: Continue Learning with Resume Feature
-   * Now uses getModuleResumeData() to jump to exact content block
-   */
   continueLearning(enrollment: EnrollmentWithCourseAndProgress, event: Event): void {
     event.stopPropagation();
 
-    // If course is completed, just view course details
     if (this.isCompleted(enrollment)) {
       this.router.navigate(['/courses/details'], {
         queryParams: { id: enrollment.course_id }
@@ -181,45 +311,32 @@ export class EnrollmentsComponent implements OnInit, OnDestroy {
 
     this.continuingCourseId = enrollment.course_id;
 
-    // Check if we have next_module from enrollment
     const nextModuleId = enrollment.next_module?.id;
 
     if (!nextModuleId) {
-      // No next module - fallback to first module
       this.handleFallbackToFirstModule(enrollment);
       return;
     }
 
-    // ✅ NEW: Get resume data for the next module
     this.studentCourseService.getModuleResumeData(nextModuleId)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (resumeData) => {
-          console.log('✅ Resume data fetched:', resumeData);
-
-          // Navigate to module with resume content ID
           this.navigateToModuleContent(
             nextModuleId,
             enrollment.course_id,
             resumeData.next_incomplete_content_id
           );
-
           this.continuingCourseId = null;
         },
         error: (err) => {
-          console.error('❌ Error fetching resume data:', err);
-
-          // Fallback: Navigate to module without specific content
+          this.toasts.error('Unable to load module data.');
           this.navigateToModuleContent(nextModuleId, enrollment.course_id);
           this.continuingCourseId = null;
         }
       });
   }
 
-  /**
-   * ✅ NEW: Navigate to module content with optional resume content
-   * Handles both resume and fresh start scenarios
-   */
   private navigateToModuleContent(
     moduleId: string,
     courseId: string,
@@ -230,21 +347,13 @@ export class EnrollmentsComponent implements OnInit, OnDestroy {
       courseId: courseId
     };
 
-    // If we have a specific content to resume from, add it to query params
     if (resumeContentId) {
       queryParams.resumeContentId = resumeContentId;
-      console.log(`🎯 Resuming at content: ${resumeContentId}`);
-    } else {
-      console.log('🆕 Starting module from beginning');
     }
 
     this.router.navigate(['/courses/module/content'], { queryParams });
   }
 
-  /**
-   * ✅ NEW: Fallback handler when no next_module available
-   * Fetches course modules and starts with the first one
-   */
   private handleFallbackToFirstModule(enrollment: EnrollmentWithCourseAndProgress): void {
     this.studentCourseService.getCourseModules(enrollment.course_id)
       .pipe(
@@ -253,7 +362,6 @@ export class EnrollmentsComponent implements OnInit, OnDestroy {
           if (response.modules && response.modules.length > 0) {
             const firstModule = response.modules[0];
 
-            // Try to get resume data for first module
             return this.studentCourseService.getModuleResumeData(firstModule.id)
               .pipe(
                 takeUntil(this.destroy$),
@@ -267,7 +375,6 @@ export class EnrollmentsComponent implements OnInit, OnDestroy {
                 })
               );
           } else {
-            // No modules found - go to course details
             this.router.navigate(['/courses/details'], {
               queryParams: { id: enrollment.course_id }
             });
@@ -280,8 +387,7 @@ export class EnrollmentsComponent implements OnInit, OnDestroy {
           this.continuingCourseId = null;
         },
         error: (err) => {
-          console.error('❌ Error in fallback module fetch:', err);
-          // Final fallback - just go to course details
+          this.toasts.error('Unable to load course modules.');
           this.router.navigate(['/courses/details'], {
             queryParams: { id: enrollment.course_id }
           });

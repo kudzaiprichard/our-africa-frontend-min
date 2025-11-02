@@ -5,15 +5,14 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
-
-// Updated imports
-import { StudentCourseService } from '../../../libs/course/services/student-course.service';
+import { StudentCourseService } from '../../../libs/course';
 import {
   GetAvailableCoursesResponse
-} from '../../../libs/course/models/enrollment.dtos.interface';
+} from '../../../libs/course';
 import {
   CourseBasic
-} from '../../../libs/course/models/course-management.dtos.interface';
+} from '../../../libs/course';
+import { ToastsService } from '../../../theme/shared';
 
 @Component({
   selector: 'app-course-catalog',
@@ -25,22 +24,21 @@ import {
 export class CourseCatalogComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
-  // Data - Updated type
   allCourses: CourseBasic[] = [];
   filteredCourses: CourseBasic[] = [];
   displayedCourses: CourseBasic[] = [];
 
-  // Pagination
+  downloadedCourses = new Set<string>();
+  checkingDownloadStatus = false;
+
   currentPage = 1;
   perPage = 12;
   totalCourses = 0;
   totalPages = 0;
 
-  // Loading & Error
   isLoading = false;
   error: string | null = null;
 
-  // Search & Filters
   searchQuery = '';
   selectedCategory = 'All Courses';
   selectedLevel: string[] = [];
@@ -49,7 +47,6 @@ export class CourseCatalogComponent implements OnInit, OnDestroy {
   selectedRating: string[] = [];
   sortBy = 'Most Popular';
 
-  // Categories
   categories = [
     'All Courses',
     'Programming',
@@ -60,20 +57,19 @@ export class CourseCatalogComponent implements OnInit, OnDestroy {
     'Personal Development'
   ];
 
-  // Filter Options
   levelOptions = ['Beginner', 'Intermediate', 'Advanced'];
   durationOptions = ['0-10 hours', '10-30 hours', '30+ hours'];
-  featureOptions = ['Quizzes', 'Certificate', 'Final Exam'];
+  featureOptions = ['Quizzes', 'Certificate', 'Final Exam', 'Available Offline'];
   ratingOptions = ['4.5 & up', '4.0 & up', '3.5 & up'];
   sortOptions = ['Most Popular', 'Highest Rated', 'Newest First', 'Title: A-Z'];
 
-  // Pre-calculated values
   private badgeMap = new Map<string, string | null>();
   private categoryMap = new Map<string, string>();
   private ratingMap = new Map<string, number>();
 
   constructor(
     private studentCourseService: StudentCourseService,
+    private toasts: ToastsService,
     private router: Router
   ) {}
 
@@ -98,36 +94,57 @@ export class CourseCatalogComponent implements OnInit, OnDestroy {
           this.allCourses = response.courses;
           this.totalCourses = response.total;
 
-          // Pre-calculate random values
           this.allCourses.forEach((course) => {
-            // Badge
             const badges = ['Bestseller', 'New', 'Popular', 'Trending'];
             const randomIndex = Math.floor(Math.random() * (badges.length + 2));
             this.badgeMap.set(course.id, randomIndex < badges.length ? badges[randomIndex] : null);
 
-            // Category - use actual category from CourseBasic
             this.categoryMap.set(course.id, course.category || 'General');
 
-            // Rating
             const rating = parseFloat((4.5 + Math.random() * 0.4).toFixed(1));
             this.ratingMap.set(course.id, rating);
           });
 
+          this.checkOfflineStatus();
           this.applyFilters();
           this.isLoading = false;
         },
         error: (err) => {
           this.error = 'Failed to load courses. Please try again.';
           this.isLoading = false;
-          console.error('Error loading courses:', err);
+          this.toasts.error('Unable to load courses. Please try again.');
         }
       });
+  }
+
+  async checkOfflineStatus(): Promise<void> {
+    this.checkingDownloadStatus = true;
+
+    try {
+      for (const course of this.allCourses) {
+        try {
+          const isDownloaded = await this.studentCourseService.isCourseDownloadedForOffline(course.id);
+          if (isDownloaded) {
+            this.downloadedCourses.add(course.id);
+          }
+        } catch (error) {
+          // Silent fail for individual courses
+        }
+      }
+    } catch (error) {
+      this.toasts.error('Unable to check offline status.');
+    } finally {
+      this.checkingDownloadStatus = false;
+    }
+  }
+
+  isCourseDownloaded(courseId: string): boolean {
+    return this.downloadedCourses.has(courseId);
   }
 
   applyFilters(): void {
     let filtered = [...this.allCourses];
 
-    // Search filter
     if (this.searchQuery.trim()) {
       const query = this.searchQuery.toLowerCase();
       filtered = filtered.filter(course =>
@@ -137,14 +154,12 @@ export class CourseCatalogComponent implements OnInit, OnDestroy {
       );
     }
 
-    // Category filter
     if (this.selectedCategory !== 'All Courses') {
       filtered = filtered.filter(course =>
         this.categoryMap.get(course.id) === this.selectedCategory
       );
     }
 
-    // Level filter
     if (this.selectedLevel.length > 0) {
       filtered = filtered.filter(course => {
         const courseLevel = course.level.charAt(0).toUpperCase() + course.level.slice(1).toLowerCase();
@@ -152,7 +167,6 @@ export class CourseCatalogComponent implements OnInit, OnDestroy {
       });
     }
 
-    // Duration filter
     if (this.selectedDuration.length > 0) {
       filtered = filtered.filter(course => {
         const duration = course.duration;
@@ -165,7 +179,17 @@ export class CourseCatalogComponent implements OnInit, OnDestroy {
       });
     }
 
-    // Sort
+    if (this.selectedFeatures.length > 0) {
+      filtered = filtered.filter(course => {
+        return this.selectedFeatures.every(feature => {
+          if (feature === 'Available Offline') {
+            return this.isCourseDownloaded(course.id);
+          }
+          return true;
+        });
+      });
+    }
+
     this.sortCourses(filtered);
 
     this.filteredCourses = filtered;
@@ -370,20 +394,20 @@ export class CourseCatalogComponent implements OnInit, OnDestroy {
 
   enrollInCourse(courseId: string, event: Event): void {
     event.stopPropagation();
+
     this.studentCourseService.enrollInCourse(courseId)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
-          console.log('Enrolled successfully:', response);
-          alert('Successfully enrolled in course!');
-          // Optionally navigate to course details or enrollments
+          this.toasts.success('Successfully enrolled! You can now start learning.');
+
           this.router.navigate(['/courses/details'], {
             queryParams: { id: courseId }
           });
         },
         error: (err) => {
-          console.error('Enrollment failed:', err);
-          alert('Failed to enroll. Please try again.');
+          const errorMessage = err.error?.message || err.message || 'Unknown error';
+          this.toasts.error(`Failed to enroll: ${errorMessage}`);
         }
       });
   }

@@ -15,7 +15,7 @@
 
   <!-- Enrollments Header -->
   <div class="enrollments-header">
-    <h1 class="enrollments-title">My Enrollments 📚</h1>
+    <h1 class="enrollments-title">My Enrollments</h1>
     <p class="enrollments-subtitle">Track your learning progress and continue where you left off</p>
   </div>
 
@@ -69,6 +69,12 @@
           <i [class]="isCompleted(enrollment) ? 'fas fa-check-circle' : 'fas fa-play-circle'"></i>
           <span>{{ isCompleted(enrollment) ? 'Completed' : 'In Progress' }}</span>
         </div>
+
+        <!-- Offline Badge -->
+        <div *ngIf="isCourseDownloaded(enrollment.course_id)" class="offline-badge">
+          <i class="fas fa-download"></i>
+          <span>Offline</span>
+        </div>
       </div>
 
       <div class="enrollment-content">
@@ -105,6 +111,11 @@
             <i class="fas fa-trophy"></i>
             <span>Certificate earned</span>
           </div>
+          <!-- Offline Status -->
+          <div class="enrollment-stat offline-stat" *ngIf="isCourseDownloaded(enrollment.course_id)">
+            <i class="fas fa-check-circle"></i>
+            <span>Available offline</span>
+          </div>
         </div>
 
         <div class="enrollment-actions">
@@ -115,6 +126,26 @@
             <i [class]="isCompleted(enrollment) ? 'fas fa-certificate' : (isContinueLoading(enrollment) ? 'fas fa-spinner fa-spin' : 'fas fa-play')"></i>
             <span>{{ isCompleted(enrollment) ? 'View Certificate' : (isContinueLoading(enrollment) ? 'Loading...' : 'Continue Learning') }}</span>
           </button>
+
+          <!-- Download Button: Show only if NOT downloaded -->
+          <button
+            *ngIf="!isCourseDownloaded(enrollment.course_id)"
+            class="btn-download-small"
+            [disabled]="isDownloading(enrollment.course_id)"
+            (click)="downloadCourseForOffline(enrollment, $event)">
+            <i [class]="isDownloading(enrollment.course_id) ? 'fas fa-spinner fa-spin' : 'fas fa-download'"></i>
+          </button>
+
+          <!-- Sync Button: Show only if downloaded AND online -->
+          <button
+            *ngIf="isCourseDownloaded(enrollment.course_id) && isOnline()"
+            class="btn-sync"
+            [disabled]="isSyncing(enrollment.course_id)"
+            (click)="syncCourseProgress(enrollment, $event)">
+            <i [class]="isSyncing(enrollment.course_id) ? 'fas fa-spinner fa-spin' : 'fas fa-sync-alt'"></i>
+            <span class="btn-sync-text">{{ isSyncing(enrollment.course_id) ? 'Syncing...' : 'Sync' }}</span>
+          </button>
+
           <button
             class="btn-view"
             (click)="viewProgress(enrollment, $event)">
@@ -132,8 +163,8 @@
     </div>
     <h3 class="empty-title">No enrollments found</h3>
     <p class="empty-subtitle">
-      {{ activeTab === 'completed' ? 'You haven\'t completed any courses yet' :
-      activeTab === 'in-progress' ? 'You don\'t have any courses in progress' :
+      {{ activeTab === 'completed' ? 'You have not completed any courses yet' :
+      activeTab === 'in-progress' ? 'You do not have any courses in progress' :
         'Start your learning journey by browsing our course catalog' }}
     </p>
     <button class="btn-browse" (click)="browseCourses()">
