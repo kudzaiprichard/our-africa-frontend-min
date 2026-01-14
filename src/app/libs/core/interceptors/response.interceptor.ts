@@ -7,8 +7,14 @@ import { API_ENDPOINTS } from '../constants/api-endpoints';
 
 /**
  * Functional HTTP interceptor to handle ApiResponse wrapper
+ * Skips processing for blob responses (file downloads)
  */
 export const responseInterceptor: HttpInterceptorFn = (req, next) => {
+  // Skip interceptor entirely for blob requests (file downloads)
+  if (req.responseType === 'blob') {
+    return next(req);
+  }
+
   return next(req).pipe(
     map((event) => {
       if (event instanceof HttpResponse) {
