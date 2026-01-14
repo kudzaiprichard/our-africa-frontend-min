@@ -28,6 +28,7 @@ export class IndexComponent implements OnInit, OnDestroy {
   isLoadingCourses = false;
   isGenerating = false;
   isLoadingPreview = false;
+  isDownloading = false;
 
   certificateRecord: CertificateRecordFull | null = null;
   transcriptRecord: CertificateRecordFull | null = null;
@@ -40,11 +41,16 @@ export class IndexComponent implements OnInit, OnDestroy {
 
   error: string | null = null;
 
+  // Platform detection
+  isTauriApp: boolean = false;
+
   constructor(
     private courseService: StudentCourseService,
     private certificateService: CertificateGenerationService,
     private toasts: ToastsService
-  ) {}
+  ) {
+    this.isTauriApp = this.certificateService.isTauriEnvironment();
+  }
 
   ngOnInit(): void {
     this.loadCompletedCourses();
@@ -202,25 +208,35 @@ export class IndexComponent implements OnInit, OnDestroy {
 
     const certId = this.certificateRecord.id;
     const certNumber = this.certificateRecord.certificate_number;
+    const filename = `certificate_${certNumber}.pdf`;
 
-    this.certificateService.downloadCertificate(certId, 'pdf')
+    this.isDownloading = true;
+
+    // Show platform-specific loading message
+    if (this.isTauriApp) {
+      this.toasts.info('Choose where to save your certificate...');
+    }
+
+    this.certificateService.downloadCertificateWithDialog(certId, filename, 'pdf')
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (blob) => {
-          if (blob.size === 0) {
-            this.toasts.error('Failed to download certificate');
-            return;
-          }
+        next: (result) => {
+          this.isDownloading = false;
 
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `certificate_${certNumber}.pdf`;
-          link.click();
-          URL.revokeObjectURL(url);
-          this.toasts.success('Certificate downloaded!');
+          if (result.success) {
+            if (result.platform === 'tauri') {
+              this.toasts.success(`✅ Certificate saved to: ${result.filePath}`);
+            } else {
+              this.toasts.success('Certificate downloaded!');
+            }
+          } else if (result.cancelled) {
+            this.toasts.info('Save cancelled');
+          } else {
+            this.toasts.error(result.message);
+          }
         },
         error: (err) => {
+          this.isDownloading = false;
           const errorMsg = err.details?.[0] || err.message || 'Failed to download certificate';
           this.toasts.error(errorMsg);
         }
@@ -235,25 +251,35 @@ export class IndexComponent implements OnInit, OnDestroy {
 
     const transcriptId = this.transcriptRecord.id;
     const transcriptNumber = this.transcriptRecord.certificate_number;
+    const filename = `transcript_${transcriptNumber}.pdf`;
 
-    this.certificateService.downloadCertificate(transcriptId, 'pdf')
+    this.isDownloading = true;
+
+    // Show platform-specific loading message
+    if (this.isTauriApp) {
+      this.toasts.info('Choose where to save your transcript...');
+    }
+
+    this.certificateService.downloadCertificateWithDialog(transcriptId, filename, 'pdf')
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (blob) => {
-          if (blob.size === 0) {
-            this.toasts.error('Failed to download transcript');
-            return;
-          }
+        next: (result) => {
+          this.isDownloading = false;
 
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `transcript_${transcriptNumber}.pdf`;
-          link.click();
-          URL.revokeObjectURL(url);
-          this.toasts.success('Transcript downloaded!');
+          if (result.success) {
+            if (result.platform === 'tauri') {
+              this.toasts.success(`✅ Transcript saved to: ${result.filePath}`);
+            } else {
+              this.toasts.success('Transcript downloaded!');
+            }
+          } else if (result.cancelled) {
+            this.toasts.info('Save cancelled');
+          } else {
+            this.toasts.error(result.message);
+          }
         },
         error: (err) => {
+          this.isDownloading = false;
           const errorMsg = err.details?.[0] || err.message || 'Failed to download transcript';
           this.toasts.error(errorMsg);
         }
@@ -261,10 +287,55 @@ export class IndexComponent implements OnInit, OnDestroy {
   }
 
   downloadBoth(): void {
-    this.downloadCertificate();
-    setTimeout(() => {
-      this.downloadTranscript();
-    }, 500);
+    if (!this.certificateRecord?.id || !this.transcriptRecord?.id) {
+      this.toasts.error('Certificate records not found');
+      return;
+    }
+
+    const certId = this.certificateRecord.id;
+    const transcriptId = this.transcriptRecord.id;
+    const certNumber = this.certificateRecord.certificate_number;
+    const transcriptNumber = this.transcriptRecord.certificate_number;
+    const certFilename = `certificate_${certNumber}.pdf`;
+    const transcriptFilename = `transcript_${transcriptNumber}.pdf`;
+
+    this.isDownloading = true;
+
+    // Show platform-specific loading message
+    if (this.isTauriApp) {
+      this.toasts.info('Choose where to save your certificates...');
+    }
+
+    this.certificateService.downloadMultipleCertificates(
+      certId,
+      transcriptId,
+      certFilename,
+      transcriptFilename,
+      'pdf'
+    )
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (result) => {
+          this.isDownloading = false;
+
+          if (result.success) {
+            if (result.platform === 'tauri') {
+              this.toasts.success(`✅ Files saved to: ${result.filePath}`);
+            } else {
+              this.toasts.success('Certificate and transcript downloaded!');
+            }
+          } else if (result.cancelled) {
+            this.toasts.info('Save cancelled');
+          } else {
+            this.toasts.error(result.message);
+          }
+        },
+        error: (err) => {
+          this.isDownloading = false;
+          const errorMsg = err.details?.[0] || err.message || 'Failed to download certificates';
+          this.toasts.error(errorMsg);
+        }
+      });
   }
 
   private revokePreviewUrls(): void {

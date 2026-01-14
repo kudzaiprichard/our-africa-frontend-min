@@ -16,7 +16,12 @@
     </div>
     <div class="header-content">
       <h1 class="page-title">My Certificates</h1>
-      <p class="page-subtitle">Claim and download your course completion certificates</p>
+      <p class="page-subtitle">
+        Claim and download your course completion certificates
+        <span *ngIf="isTauriApp" class="platform-badge">
+          <i class="fas fa-desktop"></i> Desktop App
+        </span>
+      </p>
     </div>
   </div>
 
@@ -127,14 +132,41 @@
       <div class="preview-actions">
         <button
           class="btn-download-single"
-          (click)="activeTab === 'certificate' ? downloadCertificate() : downloadTranscript()">
-          <i class="fas fa-download"></i>
-          Download {{ activeTab === 'certificate' ? 'Certificate' : 'Transcript' }} (PDF)
+          (click)="activeTab === 'certificate' ? downloadCertificate() : downloadTranscript()"
+          [disabled]="isDownloading">
+          <i class="fas"
+             [class.fa-download]="!isDownloading"
+             [class.fa-spinner]="isDownloading"
+             [class.fa-spin]="isDownloading"></i>
+          <span *ngIf="!isDownloading">
+            {{ isTauriApp ? 'Save' : 'Download' }} {{ activeTab === 'certificate' ? 'Certificate' : 'Transcript' }} (PDF)
+          </span>
+          <span *ngIf="isDownloading">
+            {{ isTauriApp ? 'Saving...' : 'Downloading...' }}
+          </span>
         </button>
-        <button class="btn-download-both" (click)="downloadBoth()">
-          <i class="fas fa-download"></i>
-          Download All (PDF)
+
+        <button
+          class="btn-download-both"
+          (click)="downloadBoth()"
+          [disabled]="isDownloading">
+          <i class="fas"
+             [class.fa-download]="!isDownloading"
+             [class.fa-spinner]="isDownloading"
+             [class.fa-spin]="isDownloading"></i>
+          <span *ngIf="!isDownloading">
+            {{ isTauriApp ? 'Save All' : 'Download All' }} (PDF)
+          </span>
+          <span *ngIf="isDownloading">
+            {{ isTauriApp ? 'Saving...' : 'Downloading...' }}
+          </span>
         </button>
+      </div>
+
+      <!-- Platform Info (Tauri Only) -->
+      <div *ngIf="isTauriApp" class="platform-info">
+        <i class="fas fa-info-circle"></i>
+        <span>You can choose where to save your files</span>
       </div>
     </div>
   </div>
