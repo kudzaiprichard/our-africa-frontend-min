@@ -1,0 +1,142 @@
+<!-- src/app/pages/certificates/index.component.html -->
+
+<!-- Loading State -->
+<div *ngIf="isLoadingCourses" class="loading-container">
+  <div class="spinner"></div>
+  <p>Loading your completed courses...</p>
+</div>
+
+<!-- Main Content -->
+<div *ngIf="!isLoadingCourses" class="certificates-page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-icon">
+      <i class="fas fa-certificate"></i>
+    </div>
+    <div class="header-content">
+      <h1 class="page-title">My Certificates</h1>
+      <p class="page-subtitle">Claim and download your course completion certificates</p>
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="error && completedCourses.length === 0" class="empty-state">
+    <i class="fas fa-graduation-cap"></i>
+    <h3>No Completed Courses</h3>
+    <p>{{ error }}</p>
+  </div>
+
+  <!-- Course Selection with Inline Claim Button -->
+  <div *ngIf="completedCourses.length > 0" class="selection-section">
+    <div class="selection-card">
+      <div class="card-header">
+        <i class="fas fa-list-ul"></i>
+        <h3>Select a Completed Course</h3>
+      </div>
+      <div class="card-content">
+
+        <!-- Dropdown and Claim Button Row -->
+        <div class="selection-row">
+          <select
+            class="course-select"
+            [(ngModel)]="selectedCourseId"
+            (change)="onCourseSelect()">
+            <option value="">-- Choose a course --</option>
+            <option *ngFor="let course of completedCourses" [value]="course.course_id">
+              {{ course.course.title }} (Completed {{ formatDate(course.completed_at!) }})
+            </option>
+          </select>
+
+          <button
+            *ngIf="selectedCourseId && !hasCertificates"
+            class="btn-claim-inline"
+            (click)="claimCertificate()"
+            [disabled]="isGenerating">
+            <i class="fas" [class.fa-certificate]="!isGenerating" [class.fa-spinner]="isGenerating" [class.fa-spin]="isGenerating"></i>
+            <span *ngIf="!isGenerating">Claim Certificate</span>
+            <span *ngIf="isGenerating">Generating...</span>
+          </button>
+        </div>
+
+        <!-- Selected Course Info -->
+        <div *ngIf="selectedCourse" class="course-info">
+          <div class="info-item">
+            <i class="fas fa-book"></i>
+            <span>{{ selectedCourse.course.title }}</span>
+          </div>
+          <div class="info-item">
+            <i class="fas fa-calendar-check"></i>
+            <span>Completed: {{ formatDate(selectedCourse.completed_at!) }}</span>
+          </div>
+          <div class="info-item">
+            <i class="fas fa-chart-line"></i>
+            <span>Progress: {{ selectedCourse.progress.completion_percentage }}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview Section (Shows after claiming or if already claimed) -->
+  <div *ngIf="showPreview && hasCertificates" class="preview-section">
+    <div class="preview-card">
+
+      <!-- Preview Header -->
+      <div class="preview-header">
+        <div class="preview-title">
+          <i class="fas" [class.fa-certificate]="activeTab === 'certificate'" [class.fa-file-alt]="activeTab === 'transcript'"></i>
+          <h3>{{ activeTab === 'certificate' ? 'Certificate Preview' : 'Transcript Preview' }}</h3>
+        </div>
+      </div>
+
+      <!-- Tab Switcher -->
+      <div class="tab-switcher">
+        <button
+          class="tab-btn"
+          [class.active]="activeTab === 'certificate'"
+          (click)="switchTab('certificate')">
+          <i class="fas fa-certificate"></i>
+          <span>Certificate</span>
+        </button>
+        <button
+          class="tab-btn"
+          [class.active]="activeTab === 'transcript'"
+          (click)="switchTab('transcript')">
+          <i class="fas fa-file-alt"></i>
+          <span>Transcript</span>
+        </button>
+      </div>
+
+      <!-- Preview Image -->
+      <div class="preview-content">
+        <div *ngIf="isLoadingPreview" class="preview-loading">
+          <div class="spinner"></div>
+          <p>Loading preview...</p>
+        </div>
+
+        <div class="preview-image-container" *ngIf="!isLoadingPreview && activeTab === 'certificate' && certificatePreviewUrl">
+          <img [src]="certificatePreviewUrl" alt="Certificate Preview" class="preview-image">
+        </div>
+        <div class="preview-image-container" *ngIf="!isLoadingPreview && activeTab === 'transcript' && transcriptPreviewUrl">
+          <img [src]="transcriptPreviewUrl" alt="Transcript Preview" class="preview-image">
+        </div>
+      </div>
+
+      <!-- Download Buttons -->
+      <div class="preview-actions">
+        <button
+          class="btn-download-single"
+          (click)="activeTab === 'certificate' ? downloadCertificate() : downloadTranscript()">
+          <i class="fas fa-download"></i>
+          Download {{ activeTab === 'certificate' ? 'Certificate' : 'Transcript' }} (PDF)
+        </button>
+        <button class="btn-download-both" (click)="downloadBoth()">
+          <i class="fas fa-download"></i>
+          Download All (PDF)
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
