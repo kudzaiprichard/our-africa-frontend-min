@@ -138,23 +138,33 @@ export const API_ENDPOINTS = {
     MODULE_RESUME: (moduleId: string) => `/api/student/modules/${moduleId}/resume`,
 
     // =============================================================================
-    // CERTIFICATE MANAGEMENT
+    // CERTIFICATE GENERATION (NEW)
     // =============================================================================
 
-    // GET /api/student/certificates
-    CERTIFICATES: '/api/student/certificates',
+    CERTIFICATE_GENERATION: {
+      // Preview endpoints
+      PREVIEW_CERTIFICATE: (courseId: string) => `/api/student/certificate-generation/preview/certificate/${courseId}`,
+      PREVIEW_TRANSCRIPT: (courseId: string) => `/api/student/certificate-generation/preview/transcript/${courseId}`,
 
-    // GET /api/student/certificates/<certificate_id>
-    CERTIFICATE_DETAILS: (certificateId: string) => `/api/student/certificates/${certificateId}`,
+      // Generate/claim certificate
+      GENERATE: (courseId: string) => `/api/student/certificate-generation/generate/${courseId}`,
 
-    // GET /api/student/certificates/<certificate_id>/download
-    CERTIFICATE_DOWNLOAD: (certificateId: string) => `/api/student/certificates/${certificateId}/download`,
+      // Download certificate/transcript
+      DOWNLOAD: (certificateRecordId: string) =>
+        `/api/student/certificate-generation/download/${certificateRecordId}`,
 
-    // GET /api/student/certificates/course/<course_id>
-    CERTIFICATE_BY_COURSE: (courseId: string) => `/api/student/certificates/course/${courseId}`,
+      // Retrieval
+      MY_CERTIFICATES: '/api/student/certificate-generation/my-certificates',
+      RECORD_DETAILS: (certificateRecordId: string) => `/api/student/certificate-generation/record/${certificateRecordId}`,
+      BY_COURSE: (courseId: string) => `/api/student/certificate-generation/course/${courseId}`,
 
-    // POST /api/student/certificates/course/<course_id>/claim - Claim certificate for completed course
-    CERTIFICATE_CLAIM: (courseId: string) => `/api/student/certificates/course/${courseId}/claim`,
+      // Eligibility
+      ELIGIBILITY: (courseId: string) => `/api/student/certificate-generation/eligibility/${courseId}`,
+      ELIGIBILITY_DETAILED: (courseId: string) => `/api/student/certificate-generation/eligibility/${courseId}/detailed`,
+
+      // Statistics
+      STATS: '/api/student/certificate-generation/stats'
+    },
 
     // =============================================================================
     // OFFLINE LEARNING
@@ -174,6 +184,15 @@ export const API_ENDPOINTS = {
 
     // DELETE /api/student/offline-sessions/<session_id>
     DELETE_SESSION: (sessionId: string) => `/api/student/offline-sessions/${sessionId}`,
+  },
+
+  // =============================================================================
+  // PUBLIC CERTIFICATE VERIFICATION (NO AUTH)
+  // =============================================================================
+
+  CERTIFICATES: {
+    VERIFY_BY_NUMBER: (certificateNumber: string) => `/api/certificates/verify/number/${certificateNumber}`,
+    VERIFY_BY_HASH: (verificationHash: string) => `/api/certificates/verify/hash/${verificationHash}`
   }
 
 } as const;
