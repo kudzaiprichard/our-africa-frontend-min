@@ -31,7 +31,18 @@
     ],
     "security": {
       "csp": null,
-      "capabilities": ["default"]
+      "capabilities": ["default",
+        {
+          "identifier": "file-operations",
+          "description": "Allows file save operations",
+          "permissions": [
+            "dialog:allow-save",
+            "fs:allow-write-file",
+            "fs:allow-exists",
+            "fs:allow-create",
+            "path:default"
+          ]
+        }]
     }
   },
   "bundle": {

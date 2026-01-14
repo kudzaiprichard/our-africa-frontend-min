@@ -148,6 +148,12 @@ pub fn run() {
       commands::sync::get_last_sync_time,
       commands::sync::set_offline_mode,
       commands::sync::is_offline_mode,
+
+      // ========== CERTIFICATE COMMANDS (NEW) ==========
+        commands::certificates::save_certificate_file,
+        commands::certificates::save_multiple_certificates,
+        commands::certificates::get_last_save_directory,
+        commands::certificates::set_last_save_directory,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

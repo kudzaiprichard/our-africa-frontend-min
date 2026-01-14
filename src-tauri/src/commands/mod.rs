@@ -4,6 +4,7 @@ pub mod lessons;
 pub mod progress;
 pub mod offline;
 pub mod sync;
+pub mod certificates;
 
 use rusqlite::{Connection, Result as SqliteResult};
 
