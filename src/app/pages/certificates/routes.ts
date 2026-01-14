@@ -9,21 +9,9 @@ const routes: Routes = [
     children: [
       {
         path: '',
-        redirectTo: 'list',
-        pathMatch: 'full'
-      },
-      {
-        path: 'list',
         loadComponent: () =>
-          import('./certificates-list/certificates-list.component').then(
-            (c) => c.CertificatesListComponent
-          )
-      },
-      {
-        path: ':certificateId',
-        loadComponent: () =>
-          import('./certificate-detail/certificate-detail.component').then(
-            (c) => c.CertificateDetailComponent
+          import('./index/index.component').then(
+            (c) => c.IndexComponent
           )
       }
     ]
