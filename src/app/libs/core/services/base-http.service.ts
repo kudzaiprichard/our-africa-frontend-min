@@ -98,11 +98,11 @@ export class BaseHttpService {
 
   /**
    * Get headers for file downloads
-   * Note: Don't set Content-Type for downloads, let browser handle it
+   * Accept any content type for downloads (PDFs, images, etc.)
    */
   private getDownloadHeaders(): HttpHeaders {
     return new HttpHeaders({
-      'Accept': 'application/pdf, application/octet-stream'
+      'Accept': '*/*'
     });
   }
 
