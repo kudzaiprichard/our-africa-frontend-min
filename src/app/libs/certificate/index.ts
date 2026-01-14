@@ -1,5 +1,5 @@
 // Models - Certificate DTOs
-export * from './models/certificates.dtos.interface';
+export * from './models/certificate-generation.types';
 
 // Services
-export * from './services/certificate.service';
+export * from './services/certificate-generation.service';
